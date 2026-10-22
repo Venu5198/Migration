@@ -11,4 +11,3 @@ CSV exports are hardened against formula injection: any value whose stripped rep
 Separation of duties is enforced: mapping authors cannot approve their own mappings when authentication is active, and approved mappings cannot be re-approved or mutated without version incrementing.
 
 Audit events are persisted as metadata-only records in `audit_events` for uploads, source access, mapping creation, updates, approvals, job creation, claiming, cancellation, completion, failures, CSV export downloads, and reconciliation queries. No raw cell values or secrets are stored in audit logs. Access to audit event history is restricted to the `admin` role.
-

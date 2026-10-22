@@ -17,4 +17,3 @@ The supplied project root was empty and not a Git repository. It was initialized
 2. Add transformation/preview records and CSV/XLSX exports with formula-injection protection.
 3. Add issue persistence, pagination, cancellation, audit events, retention policy, and role authorization.
 4. Add sanitized 50,000-row benchmark, CI, and target connector contract once client approval exists.
-

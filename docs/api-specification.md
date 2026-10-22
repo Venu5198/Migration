@@ -20,4 +20,3 @@ Security and Validation Controls:
 - Mapping approvals are immutable and enforce separation of duties (author cannot approve their own mapping when auth is active).
 - Approved mappings cannot be mutated via `PUT /api/v1/mappings/{mapping_id}`.
 - Exports and reconciliation queries generate auditable lineage records.
-

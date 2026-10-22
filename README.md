@@ -15,4 +15,3 @@ uvicorn app.main:app --reload
 Open `http://127.0.0.1:8000/docs`. Run `pytest` and `ruff check .` before commits. MongoDB is optional for local exploration; without `MIGRATION_MONGODB_URI`, the API uses ephemeral in-memory metadata and reports a degraded database health state. Docker Compose provisions MongoDB for durable local use.
 
 See [documentation](docs/architecture.md) for architecture, safety boundaries, APIs, testing, and unresolved client decisions.
-

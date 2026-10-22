@@ -8,8 +8,10 @@ jobs:
         python-version: ["3.12", "3.13"]
     services:
       mongo:
-        image: mongo:8
+        image: mongo:7
         ports: [27017:27017]
+        env:
+          GLIBC_TUNABLES: "glibc.pthread.rseq=0"
         options: >-
           --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
           --health-interval 10s

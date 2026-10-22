@@ -33,4 +33,3 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["B008"] # FastAPI dependency markers intentionally use parameter defaults.
-
