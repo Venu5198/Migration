@@ -24,6 +24,12 @@ services:
       MIGRATION_UPLOAD_DIR: /app/data/uploads
       MIGRATION_REPORT_DIR: /app/data/reports
     volumes: ["migration_uploads:/app/data"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import asyncio, os, sys; from app.repositories import MongoRepository; sys.exit(0 if asyncio.run(MongoRepository(os.getenv('MIGRATION_MONGODB_URI', 'mongodb://mongo:27017')).health()) else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     depends_on:
       mongo:
         condition: service_healthy
