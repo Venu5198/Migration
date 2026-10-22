@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   BarChart2,
   CheckCircle2,
   Clock,
@@ -22,6 +23,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { JobResponse, ProfileResult, SourceResponse } from '../types';
 
 export const ProfilingPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSourceId = searchParams.get('sourceId') || '';
 
@@ -109,13 +111,28 @@ export const ProfilingPage: React.FC = () => {
   const sheetNulls: Record<string, number> =
     profileResult?.sheets?.[0]?.null_counts || profileResult?.null_counts || {};
 
-  // Null counts chart data
-  const nullChartData = Object.entries(sheetNulls).map(([key, val]) => ({
-    name: key,
+  const selectedSource = sources.find((s) => s.source_id === selectedSourceId);
+  const currentSheet = selectedSource?.sheets?.[0];
+
+  // Inferred schema types from source inspection or profile result
+  const inferredSchemaTypes: Record<string, string> =
+    (profileResult?.type_profile && Object.keys(profileResult.type_profile).length > 0)
+      ? profileResult.type_profile
+      : currentSheet?.inferred_types || {};
+
+  // Null counts chart data: prioritize columns with nulls, top 25, clean labels
+  const columnsWithNulls = Object.entries(sheetNulls)
+    .filter(([_, val]) => val > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const displayNullEntries = (columnsWithNulls.length > 0 ? columnsWithNulls : Object.entries(sheetNulls))
+    .slice(0, 25);
+
+  const nullChartData = displayNullEntries.map(([key, val]) => ({
+    name: key.length > 12 ? key.slice(0, 10) + '...' : key,
+    fullName: key,
     nulls: val,
   }));
-
-  const selectedSource = sources.find((s) => s.source_id === selectedSourceId);
 
   const totalEvaluatedRows =
     profileResult?.sheets?.reduce((acc, s) => acc + (s.populated_rows || 0), 0) ??
@@ -181,7 +198,7 @@ export const ProfilingPage: React.FC = () => {
         <Card
           title={
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm text-slate-500">Job: {activeJob.job_id}</span>
+              <span className="font-mono text-sm text-slate-500">Profiling Job: {activeJob.job_id}</span>
               <Badge
                 variant={
                   activeJob.status === 'COMPLETED'
@@ -199,6 +216,7 @@ export const ProfilingPage: React.FC = () => {
               </Badge>
             </div>
           }
+          subtitle="Worker background task UUID (note: this is a profiling task ID, not a field mapping ID)"
           action={
             !['COMPLETED', 'COMPLETED_WITH_ERRORS', 'FAILED', 'CANCELLED'].includes(activeJob.status) ? (
               <Button
@@ -210,7 +228,16 @@ export const ProfilingPage: React.FC = () => {
               >
                 Cancel Job
               </Button>
-            ) : null
+            ) : (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate(`/mappings?sourceId=${selectedSourceId}`)}
+                icon={<ArrowRight className="w-3.5 h-3.5" />}
+              >
+                Next Step: Map Fields
+              </Button>
+            )
           }
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
@@ -304,17 +331,27 @@ export const ProfilingPage: React.FC = () => {
 
           {/* Null Counts Chart & Inferred Types */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card title="Missing / Null Counts by Field" subtitle="Columns with detected empty values">
+            <Card
+              title="Missing / Null Counts by Field"
+              subtitle={
+                displayNullEntries.length > 0
+                  ? `Showing top ${displayNullEntries.length} fields with missing values (hover bar for full column name)`
+                  : 'Columns with detected empty values'
+              }
+            >
               {nullChartData.length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-500">No null values found across profiled rows.</div>
               ) : (
                 <div className="h-64 w-full pt-4">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={nullChartData} margin={{ top: 10, right: 10, left: -20, bottom: 40 }}>
+                    <BarChart data={nullChartData} margin={{ top: 10, right: 10, left: -20, bottom: 45 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} tick={{ fontSize: 10 }} />
+                      <XAxis dataKey="name" angle={-35} textAnchor="end" interval={0} tick={{ fontSize: 9 }} />
                       <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
+                      <Tooltip
+                        formatter={(val: any, _name: any, item: any) => [val, `Missing Values`]}
+                        labelFormatter={(_: any, items: any) => items?.[0]?.payload?.fullName || ''}
+                      />
                       <Bar dataKey="nulls" fill="#2563eb" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -322,14 +359,25 @@ export const ProfilingPage: React.FC = () => {
               )}
             </Card>
 
-            <Card title="Inferred Schema Types" subtitle="Detected types per header">
-              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 text-xs">
-                {Object.entries(profileResult.type_profile || {}).map(([col, typ]) => (
-                  <div key={col} className="py-2.5 flex items-center justify-between">
-                    <span className="font-semibold text-slate-800">{col}</span>
-                    <Badge variant="navy">{typ}</Badge>
+            <Card
+              title="Inferred Schema Types"
+              subtitle={`Detected data types across ${Object.keys(inferredSchemaTypes).length} source columns`}
+            >
+              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 text-xs pr-1">
+                {Object.keys(inferredSchemaTypes).length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-500">
+                    No schema types available. Inspect source headers on Workbooks & Sources page.
                   </div>
-                ))}
+                ) : (
+                  Object.entries(inferredSchemaTypes).map(([col, typ]) => (
+                    <div key={col} className="py-2 flex items-center justify-between">
+                      <span className="font-semibold text-slate-800 font-mono text-[11px] truncate max-w-[200px]" title={col}>
+                        {col}
+                      </span>
+                      <Badge variant="navy">{typ}</Badge>
+                    </div>
+                  ))
+                )}
               </div>
             </Card>
           </div>

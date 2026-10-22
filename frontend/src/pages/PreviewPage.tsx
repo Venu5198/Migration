@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowRight,
@@ -23,6 +23,7 @@ import { Modal } from '../components/common/Modal';
 import { JobResponse, MappingResponse, PreviewResult, ReconciliationReport, SourceResponse } from '../types';
 
 export const PreviewPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialSourceId = searchParams.get('sourceId') || '';
   const initialMappingId = searchParams.get('mappingId') || '';
@@ -144,10 +145,32 @@ export const PreviewPage: React.FC = () => {
         </p>
       </div>
 
-      {error && <Alert type="error" onClose={() => setError(null)}>{error}</Alert>}
+      {error && (
+        <Alert type="error" onClose={() => setError(null)}>
+          <div className="space-y-2">
+            <div>{error}</div>
+            {error.toLowerCase().includes('not found') && (
+              <div className="text-xs text-rose-700 bg-rose-100/60 p-2 rounded">
+                <strong>Tip:</strong> The ID entered was not recognized as a field mapping. If you recently profiled this workbook, make sure to define a mapping in <strong>Field Mapping</strong> and approve it in <strong>Mapping Approvals</strong> first.
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => navigate('/mappings')}>
+                    Go to Field Mapping &rarr;
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => navigate('/approvals')}>
+                    Go to Mapping Approvals &rarr;
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Alert>
+      )}
 
       {/* Form Trigger Card */}
-      <Card title="Execute Transformation Dry-Run">
+      <Card
+        title="Execute Transformation Dry-Run"
+        subtitle="Select a source workbook and an approved field mapping. Writes remain strictly isolated."
+      >
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -175,16 +198,19 @@ export const PreviewPage: React.FC = () => {
                 type="text"
                 value={selectedMappingId}
                 onChange={(e) => setSelectedMappingId(e.target.value)}
-                placeholder="Paste approved Mapping UUID"
+                placeholder="Paste approved Mapping UUID (from Field Mapping & Approvals)"
                 className="w-full text-sm font-mono px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
+              <span className="text-[11px] text-slate-400 mt-1 block">
+                Requires an Approved Mapping UUID (do not use Profiling Job UUID).
+              </span>
             </div>
           </div>
 
           {recentMappings.length > 0 && (
             <div className="pt-2">
               <span className="text-xs text-slate-500 block mb-1.5 font-medium">
-                Quick Select from Mappings:
+                Quick Select from Workspace Mappings:
               </span>
               <div className="flex flex-wrap gap-2">
                 {recentMappings.map((m) => (
@@ -201,7 +227,7 @@ export const PreviewPage: React.FC = () => {
                     }`}
                   >
                     <span>{m.source_field} &rarr; {m.target_field}</span>
-                    <Badge variant={m.status === 'approved' ? 'success' : 'neutral'}>
+                    <Badge variant={m.status === 'approved' ? 'success' : 'warning'}>
                       {m.status}
                     </Badge>
                   </button>

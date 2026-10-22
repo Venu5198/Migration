@@ -103,18 +103,60 @@ export const ApprovalsPage: React.FC = () => {
         </p>
       </div>
 
-      {error && <Alert type="error" onClose={() => setError(null)}>{error}</Alert>}
+      {error && (
+        <Alert type="error" onClose={() => setError(null)}>
+          <div className="space-y-2">
+            <div>{error}</div>
+            {error.toLowerCase().includes('not found') && (
+              <div className="text-xs text-rose-700 bg-rose-100/60 p-2 rounded">
+                <strong>Tip:</strong> You might be pasting a <em>Profiling Job UUID</em> or <em>Source Workbook ID</em>. Only <strong>Field Mapping UUIDs</strong> (created on the Field Mapping page) can be approved.
+                <div className="mt-2">
+                  <Button size="sm" variant="outline" onClick={() => navigate('/mappings')}>
+                    Go to Field Mapping &rarr;
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </Alert>
+      )}
       {success && <Alert type="success" onClose={() => setSuccess(null)}>{success}</Alert>}
 
+      {/* Empty State Helper when no mappings are in workspace */}
+      {!mapping && recentMappings.length === 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />
+            <div>
+              <h4 className="text-sm font-semibold text-amber-900">No Field Mappings Found in Session</h4>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Before approving, you must first create field mappings connecting source spreadsheet columns to target schemas.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => navigate('/mappings')}
+            icon={<ArrowRight className="w-4 h-4" />}
+          >
+            Create Field Mappings
+          </Button>
+        </div>
+      )}
+
       {/* Mapping Lookup / Picker */}
-      <Card title="Select or Search Mapping for Review">
+      <Card
+        title="Select or Search Mapping for Review"
+        subtitle="Search by Mapping UUID (created on the Field Mapping page — do NOT use Job UUID)"
+      >
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
             <input
               type="text"
               value={inputMappingId}
               onChange={(e) => setInputMappingId(e.target.value)}
-              placeholder="Paste Mapping UUID (e.g. 1a2b3c4d-...)"
+              placeholder="Paste Field Mapping UUID (from Field Mapping page)"
               className="w-full text-sm font-mono px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
@@ -148,7 +190,7 @@ export const ApprovalsPage: React.FC = () => {
                   <span>&rarr;</span>
                   <span>{m.target_field}</span>
                   <Badge variant={m.status === 'approved' ? 'success' : 'neutral'} className="text-[10px]">
-                    v{m.version}
+                    v{m.version} ({m.status})
                   </Badge>
                 </button>
               ))}
