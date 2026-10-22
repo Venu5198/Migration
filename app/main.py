@@ -34,7 +34,7 @@ if settings.cors_origins:
         CORSMiddleware,
         allow_origins=[item.strip() for item in settings.cors_origins.split(",") if item.strip()],
         allow_credentials=True,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
 app.add_exception_handler(DomainError, domain_error_handler)
