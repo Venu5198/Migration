@@ -1,0 +1,43 @@
+services:
+  api:
+    build: .
+    environment:
+      MIGRATION_MONGODB_URI: mongodb://mongo:27017
+      MIGRATION_UPLOAD_DIR: /app/data/uploads
+      MIGRATION_REPORT_DIR: /app/data/reports
+    ports: ["8000:8000"]
+    volumes: ["migration_uploads:/app/data"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      mongo:
+        condition: service_healthy
+  worker:
+    build: .
+    command: ["python", "-m", "app.workers.worker"]
+    environment:
+      MIGRATION_MONGODB_URI: mongodb://mongo:27017
+      MIGRATION_UPLOAD_DIR: /app/data/uploads
+      MIGRATION_REPORT_DIR: /app/data/reports
+    volumes: ["migration_uploads:/app/data"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+  mongo:
+    image: mongo:8
+    environment:
+      MONGO_INITDB_DATABASE: migration
+    volumes: ["mongo_data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  mongo_data:
+  migration_uploads:
+
