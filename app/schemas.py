@@ -22,8 +22,8 @@ class ValidationIssue(BaseModel):
 
 class SheetSchema(BaseModel):
     name: str
-    max_row: int
-    max_column: int
+    max_row: int = 0
+    max_column: int = 0
     headers: list[str] = Field(default_factory=list)
     inferred_types: dict[str, str] = Field(default_factory=dict)
     issues: list[ValidationIssue] = Field(default_factory=list)

@@ -90,7 +90,10 @@ def inspect_workbook(path: Path) -> list[SheetSchema]:
             )
             schemas.append(
                 SheetSchema(
-                    name=ws.title, max_row=ws.max_row, max_column=ws.max_column, issues=issues
+                    name=ws.title,
+                    max_row=ws.max_row or 0,
+                    max_column=ws.max_column or 0,
+                    issues=issues,
                 )
             )
             continue
@@ -132,8 +135,8 @@ def inspect_workbook(path: Path) -> list[SheetSchema]:
         schemas.append(
             SheetSchema(
                 name=ws.title,
-                max_row=ws.max_row,
-                max_column=ws.max_column,
+                max_row=ws.max_row or 0,
+                max_column=ws.max_column or 0,
                 headers=headers,
                 inferred_types=inferred,
                 issues=issues,

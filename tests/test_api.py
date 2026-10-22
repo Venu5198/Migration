@@ -60,7 +60,30 @@ def test_upload_discovers_all_sheets_and_flags_duplicate_header(client: TestClie
     assert {sheet["name"] for sheet in source["sheets"]} == {"Assignments", "Empty"}
     assignment = next(sheet for sheet in source["sheets"] if sheet["name"] == "Assignments")
     assert any(issue["code"] == "DUPLICATE_COLUMN" for issue in assignment["issues"])
+    empty_sheet = next(sheet for sheet in source["sheets"] if sheet["name"] == "Empty")
+    assert isinstance(empty_sheet["max_row"], int)
+    assert isinstance(empty_sheet["max_column"], int)
     assert source["sha256"]
+
+
+def test_inspect_workbook_handles_none_dimensions(tmp_path):
+    from unittest.mock import MagicMock, patch
+
+    from app.services.workbooks import inspect_workbook
+
+    mock_wb = MagicMock()
+    mock_ws = MagicMock()
+    mock_ws.title = "EmptySheet"
+    mock_ws.max_row = None
+    mock_ws.max_column = None
+    mock_ws.iter_rows.return_value = iter([])
+    mock_wb.worksheets = [mock_ws]
+
+    with patch("app.services.workbooks.load_workbook", return_value=mock_wb):
+        schemas = inspect_workbook(tmp_path / "dummy.xlsx")
+        assert len(schemas) == 1
+        assert schemas[0].max_row == 0
+        assert schemas[0].max_column == 0
 
 
 def test_rejects_non_workbook_upload(client: TestClient):
