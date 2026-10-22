@@ -27,8 +27,7 @@ def main():
     body.write(f"--{boundary}\r\n".encode())
     body.write(b'Content-Disposition: form-data; name="file"; filename="e2e_smoke.xlsx"\r\n')
     body.write(
-        b"Content-Type: "
-        b"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n"
+        b"Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n"
     )
     body.write(content)
     body.write(f"\r\n--{boundary}--\r\n".encode())
@@ -63,15 +62,17 @@ def main():
         time.sleep(1)
 
     # 4. Create mapping
-    map_data = json.dumps({
-        "source_id": source_id,
-        "source_entity": "Employee",
-        "source_sheet": "Employees",
-        "source_field": "emp_id",
-        "target_entity": "Worker",
-        "target_field": "worker_id",
-        "mapping_type": "direct",
-    }).encode()
+    map_data = json.dumps(
+        {
+            "source_id": source_id,
+            "source_entity": "Employee",
+            "source_sheet": "Employees",
+            "source_field": "emp_id",
+            "target_entity": "Worker",
+            "target_field": "worker_id",
+            "mapping_type": "direct",
+        }
+    ).encode()
     req = urllib.request.Request(
         "http://localhost:3000/api/v1/mappings",
         data=map_data,
