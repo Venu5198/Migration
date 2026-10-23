@@ -76,6 +76,17 @@ async def queue_preview(
     return await _create("preview", payload, repo, actor.subject)
 
 
+@router.post(
+    "/sources/{source_id}/equus-migration",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def queue_equus_migration(
+    source_id: str, repo=Depends(repository), actor=Depends(current_actor)
+):
+    return await _create("equus_migration", JobCreate(source_id=source_id), repo, actor.subject)
+
+
 @router.get("/jobs/{job_id}", response_model=JobResponse)
 async def get_job(job_id: str, repo=Depends(repository)):
     job = await repo.get_job(job_id)
@@ -101,12 +112,48 @@ async def cancel_job(job_id: str, repo=Depends(repository), actor=Depends(curren
 
 
 @router.get("/reports/{job_id}/export")
-async def export_report(job_id: str, repo=Depends(repository), actor=Depends(current_actor)):
+async def export_report(
+    job_id: str,
+    artifact: str = "report",
+    repo=Depends(repository),
+    actor=Depends(current_actor),
+):
     job = await repo.get_job(job_id)
     if not job or not job.get("result"):
         raise HTTPException(
             404, detail={"code": "REPORT_NOT_FOUND", "message": "Report was not found."}
         )
+
+    # Equus Migration Excel Artifacts (Report or Import File)
+    if job.get("kind") == "equus_migration":
+        from pathlib import Path
+
+        file_key = "report_file" if artifact == "report" else "import_file"
+        file_path_str = job["result"].get(file_key)
+        if not file_path_str or not Path(file_path_str).exists():
+            raise HTTPException(
+                404,
+                detail={
+                    "code": "ARTIFACT_NOT_FOUND",
+                    "message": f"Artifact '{file_key}' was not found.",
+                },
+            )
+        file_path = Path(file_path_str)
+        content = file_path.read_bytes()
+        await audit(
+            repo,
+            action="report.exported",
+            entity_id=job_id,
+            job_id=job_id,
+            actor=actor.subject,
+            metadata={"artifact": artifact, "filename": file_path.name},
+        )
+        return Response(
+            content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{file_path.name}"'},
+        )
+
     report_id = str(uuid4())
     source = await repo.get_source(job["source_id"])
     workbook_digest = source["sha256"] if source else "UNKNOWN"
@@ -150,6 +197,9 @@ async def reconciliation(job_id: str, repo=Depends(repository), actor=Depends(cu
         job_id=job_id,
         actor=actor.subject,
     )
+    if job.get("kind") == "equus_migration":
+        return job["result"].get("reconciliation", {})
+
     return reconcile_preview(job["result"])
 
 

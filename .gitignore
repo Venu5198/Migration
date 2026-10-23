@@ -15,6 +15,7 @@ coverage/
 data/uploads/
 data/reports/
 !tests/fixtures/*.xlsx
+!app/templates/*.xlsx
 .vscode/
 .idea/
 frontend/node_modules/

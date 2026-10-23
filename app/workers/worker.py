@@ -64,8 +64,45 @@ async def process_once(repo, worker_id: str) -> bool:
                 job_id=job["job_id"],
                 metadata={"mapping_id": job["mapping_id"]},
             )
+        elif job["kind"] == "equus_migration":
+            from app.services.equus import run_equus_migration_pipeline
+
+            result = run_equus_migration_pipeline(
+                source_path=Path(source["storage_path"]),
+                output_dir=settings.report_dir / "equus",
+                source_name=source.get("original_filename", "").replace(".xlsx", "")
+                or job["source_id"],
+            )
+            current = await repo.get_job(job["job_id"])
+            if current and current.get("cancellation_requested"):
+                await repo.finish_job(job["job_id"], JobStatus.CANCELLED)
+                await audit(
+                    repo, action="job.cancelled", entity_id=job["job_id"], job_id=job["job_id"]
+                )
+                return True
+            recon = result.get("reconciliation", {})
+            job_status = (
+                JobStatus.COMPLETED
+                if recon.get("is_valid") and not result.get("warnings_count")
+                else (
+                    JobStatus.COMPLETED_WITH_ERRORS if recon.get("is_valid") else JobStatus.FAILED
+                )
+            )
+            await repo.finish_job(job["job_id"], job_status, result)
+            await audit(
+                repo,
+                action="equus_migration.completed",
+                entity_id=job["job_id"],
+                job_id=job["job_id"],
+                metadata={
+                    "status": job_status,
+                    "coverage": result.get("coverage_percentage"),
+                    "import_file": result.get("import_file"),
+                },
+            )
         else:
             await repo.finish_job(job["job_id"], JobStatus.FAILED, failure_code="UNKNOWN_JOB_KIND")
+
     except Exception:
         await repo.finish_job(job["job_id"], JobStatus.FAILED, failure_code="WORKER_ERROR")
         await audit(
