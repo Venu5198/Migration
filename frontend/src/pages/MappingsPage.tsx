@@ -71,8 +71,10 @@ export const MappingsPage: React.FC = () => {
         setSources(res.items);
         if (!selectedSourceId && res.items.length > 0) {
           setSelectedSourceId(res.items[0].source_id);
-          const firstSheet = res.items[0].sheets?.[0]?.name;
-          if (firstSheet) setSelectedSheetName(firstSheet);
+        }
+        const activeSrc = res.items.find((s) => s.source_id === (selectedSourceId || res.items[0]?.source_id)) || res.items[0];
+        if (activeSrc?.sheets?.[0]?.name && !selectedSheetName) {
+          setSelectedSheetName(activeSrc.sheets[0].name);
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load workbooks.');

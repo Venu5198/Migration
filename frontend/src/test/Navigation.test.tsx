@@ -48,6 +48,7 @@ describe('Navigation and Layout Components', () => {
     );
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Topia → Equus Migration')).toBeInTheDocument();
     expect(screen.getByText('Workbooks & Sources')).toBeInTheDocument();
     expect(screen.getByText('Data Profiling')).toBeInTheDocument();
     expect(screen.getByText('Field Mapping')).toBeInTheDocument();

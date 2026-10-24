@@ -25,6 +25,9 @@ class SheetSchema(BaseModel):
     max_row: int = 0
     max_column: int = 0
     headers: list[str] = Field(default_factory=list)
+    technical_headers: list[str] = Field(default_factory=list)
+    header_rows_count: int = 1
+    data_start_row: int = 2
     inferred_types: dict[str, str] = Field(default_factory=dict)
     issues: list[ValidationIssue] = Field(default_factory=list)
 
@@ -103,6 +106,7 @@ class JobResponse(BaseModel):
     job_id: str
     kind: str
     source_id: str
+    source_filename: str | None = None
     status: JobStatus
     progress: int
     attempts: int
@@ -111,3 +115,11 @@ class JobResponse(BaseModel):
     result: dict[str, Any] | None = None
     failure_code: str | None = None
     cancellation_requested: bool = False
+
+
+class PagedJobs(BaseModel):
+    items: list[JobResponse]
+    page: int
+    page_size: int
+    total: int
+

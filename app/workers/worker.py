@@ -65,13 +65,25 @@ async def process_once(repo, worker_id: str) -> bool:
                 metadata={"mapping_id": job["mapping_id"]},
             )
         elif job["kind"] == "equus_migration":
-            from app.services.equus import run_equus_migration_pipeline
+            from app.services.equus import (
+                DEFAULT_ASSIGNMENT_IDENTIFIER_STRATEGY,
+                run_equus_migration_pipeline,
+            )
+
+            strategy = job.get("strategy") or DEFAULT_ASSIGNMENT_IDENTIFIER_STRATEGY
+            target = job.get("target") or settings.equus_target
+            demo_writes = job.get("demo_writes_enabled")
+            if demo_writes is None:
+                demo_writes = settings.demo_writes_enabled
 
             result = run_equus_migration_pipeline(
                 source_path=Path(source["storage_path"]),
                 output_dir=settings.report_dir / "equus",
                 source_name=source.get("original_filename", "").replace(".xlsx", "")
                 or job["source_id"],
+                strategy=strategy,
+                target=target,
+                demo_writes_enabled=demo_writes,
             )
             current = await repo.get_job(job["job_id"])
             if current and current.get("cancellation_requested"):
@@ -98,6 +110,11 @@ async def process_once(repo, worker_id: str) -> bool:
                     "status": job_status,
                     "coverage": result.get("coverage_percentage"),
                     "import_file": result.get("import_file"),
+                    "demo_writes_enabled": demo_writes,
+                    "target": target,
+                    "destination_status": result.get("execution_summary", {}).get(
+                        "verification_status"
+                    ),
                 },
             )
         else:

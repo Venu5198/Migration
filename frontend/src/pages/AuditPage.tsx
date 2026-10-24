@@ -75,7 +75,7 @@ export const AuditPage: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Audit Lineage Events</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Immutable event log tracking uploads, mapping versions, separation-of-duties approvals, worker execution, and CSV export access.
+          Append-only application event log tracking uploads, mapping versions, separation-of-duties approvals, worker execution, and artifact downloads.
         </p>
       </div>
 

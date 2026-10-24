@@ -179,7 +179,16 @@ export const PreviewPage: React.FC = () => {
               </label>
               <select
                 value={selectedSourceId}
-                onChange={(e) => setSelectedSourceId(e.target.value)}
+                onChange={(e) => {
+                  const newSourceId = e.target.value;
+                  setSelectedSourceId(newSourceId);
+                  const validForNewSource = recentMappings.filter((m) => m.source_id === newSourceId);
+                  if (validForNewSource.length > 0 && !validForNewSource.some((m) => m.mapping_id === selectedMappingId)) {
+                    setSelectedMappingId(validForNewSource[0].mapping_id);
+                  } else if (validForNewSource.length === 0) {
+                    setSelectedMappingId('');
+                  }
+                }}
                 className="w-full text-sm px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
               >
                 {sources.map((s) => (
@@ -210,28 +219,33 @@ export const PreviewPage: React.FC = () => {
           {recentMappings.length > 0 && (
             <div className="pt-2">
               <span className="text-xs text-slate-500 block mb-1.5 font-medium">
-                Quick Select from Workspace Mappings:
+                Quick Select from Mappings for Selected Workbook:
               </span>
               <div className="flex flex-wrap gap-2">
-                {recentMappings.map((m) => (
-                  <button
-                    key={m.mapping_id}
-                    onClick={() => {
-                      setSelectedSourceId(m.source_id);
-                      setSelectedMappingId(m.mapping_id);
-                    }}
-                    className={`text-xs px-2.5 py-1 rounded border flex items-center gap-1.5 transition-colors ${
-                      selectedMappingId === m.mapping_id
-                        ? 'bg-blue-800 text-white border-blue-900 font-semibold'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <span>{m.source_field} &rarr; {m.target_field}</span>
-                    <Badge variant={m.status === 'approved' ? 'success' : 'warning'}>
-                      {m.status}
-                    </Badge>
-                  </button>
-                ))}
+                {recentMappings
+                  .filter((m) => !selectedSourceId || m.source_id === selectedSourceId)
+                  .map((m) => (
+                    <button
+                      key={m.mapping_id}
+                      onClick={() => {
+                        setSelectedSourceId(m.source_id);
+                        setSelectedMappingId(m.mapping_id);
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded border flex items-center gap-1.5 transition-colors ${
+                        selectedMappingId === m.mapping_id
+                          ? 'bg-blue-800 text-white border-blue-900 font-semibold'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span>{m.source_field} &rarr; {m.target_field}</span>
+                      <Badge variant={m.status === 'approved' ? 'success' : 'warning'}>
+                        {m.status}
+                      </Badge>
+                    </button>
+                  ))}
+                {recentMappings.filter((m) => !selectedSourceId || m.source_id === selectedSourceId).length === 0 && (
+                  <span className="text-xs text-slate-400 italic">No saved mappings found for this workbook.</span>
+                )}
               </div>
             </div>
           )}
@@ -320,12 +334,21 @@ export const PreviewPage: React.FC = () => {
       {previewResult && (
         <div className="space-y-6">
           {/* KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <Card className="border-l-4 border-l-blue-800">
-              <span className="text-xs font-semibold text-slate-500 uppercase">Evaluated Records</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase">Source Data Records</span>
               <div className="text-2xl font-bold text-slate-900 mt-1">
                 {previewResult.records_evaluated ?? previewResult.evaluated_rows ?? 0}
               </div>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Employee data rows</span>
+            </Card>
+
+            <Card className="border-l-4 border-l-indigo-600">
+              <span className="text-xs font-semibold text-slate-500 uppercase">Header Rows (Excluded)</span>
+              <div className="text-2xl font-bold text-indigo-700 mt-1">
+                {previewResult.header_rows_count ?? 1}
+              </div>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Metadata / rules excluded</span>
             </Card>
 
             <Card className="border-l-4 border-l-emerald-600">
@@ -333,6 +356,7 @@ export const PreviewPage: React.FC = () => {
               <div className="text-2xl font-bold text-emerald-700 mt-1">
                 {previewResult.eligible_records ?? previewResult.migrated_rows ?? 0}
               </div>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Transformed records</span>
             </Card>
 
             <Card className="border-l-4 border-l-amber-500">
@@ -340,6 +364,7 @@ export const PreviewPage: React.FC = () => {
               <div className="text-2xl font-bold text-amber-700 mt-1">
                 {previewResult.structural_empty_rows ?? 0}
               </div>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Blank rows skipped</span>
             </Card>
 
             <Card className="border-l-4 border-l-purple-600">
@@ -347,6 +372,7 @@ export const PreviewPage: React.FC = () => {
               <div className="text-sm font-semibold text-purple-800 mt-2 flex items-center gap-1">
                 <ShieldCheck className="w-4 h-4 text-purple-700" /> Active (Escaped)
               </div>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">Formulas sanitised</span>
             </Card>
           </div>
 

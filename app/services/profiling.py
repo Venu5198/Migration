@@ -6,25 +6,29 @@ from openpyxl import load_workbook
 from app.schemas import IssueSeverity, ValidationIssue
 
 
+from app.services.workbooks import detect_sheet_layout
+
+
 def profile_workbook(path: Path) -> dict:
     workbook = load_workbook(path, read_only=True, data_only=False)
     sheets = []
     issues: list[dict] = []
     for ws in workbook.worksheets:
-        values = ws.iter_rows(values_only=True)
-        headers = next(values, None)
-        if not headers:
+        layout = detect_sheet_layout(ws)
+        if layout.kind == "empty":
             continue
-        labels = [
-            str(value).strip() if value not in (None, "") else f"__blank_{i + 1}"
-            for i, value in enumerate(headers)
-        ]
+        labels = layout.headers
         nulls = Counter()
         populated_rows = 0
         structural_empty_rows = 0
         seen_rows = set()
         duplicates = 0
-        for row_number, row in enumerate(values, start=2):
+        values = ws.iter_rows(values_only=True)
+        # Fast forward past header rows
+        for _ in range(layout.data_start_row - 1):
+            next(values, None)
+
+        for row_number, row in enumerate(values, start=layout.data_start_row):
             normalized = tuple(row[: len(labels)])
             if not any(value not in (None, "") for value in normalized):
                 structural_empty_rows += 1
@@ -48,6 +52,7 @@ def profile_workbook(path: Path) -> dict:
         sheets.append(
             {
                 "sheet": ws.title,
+                "header_rows_count": layout.header_rows_count,
                 "populated_rows": populated_rows,
                 "empty_structural_rows": structural_empty_rows,
                 "null_counts": dict(nulls),
@@ -56,3 +61,4 @@ def profile_workbook(path: Path) -> dict:
         )
     workbook.close()
     return {"sheets": sheets, "issues": issues}
+

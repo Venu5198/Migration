@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -431,3 +432,100 @@ async def test_worker_cancellation_checkpoint(client: TestClient):
     await process_once(app.state.repository, "test-worker")
     job = await app.state.repository.get_job(job_id)
     assert job["status"] == "CANCELLED"
+
+
+def test_list_jobs_and_sanitization(client: TestClient):
+    source = upload(client)
+    # Create profile job
+    job1 = client.post(f"/api/v1/sources/{source['source_id']}/profile").json()
+    # Create equus migration job
+    job2 = client.post(
+        f"/api/v1/sources/{source['source_id']}/equus-migration",
+        json={"strategy": "EMPLOYEE_NUMBER"},
+    ).json()
+
+    # Query all jobs
+    resp = client.get("/api/v1/jobs")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] >= 2
+    job_ids = [j["job_id"] for j in data["items"]]
+    assert job1["job_id"] in job_ids
+    assert job2["job_id"] in job_ids
+
+    # Query filtered by kind
+    filtered = client.get("/api/v1/jobs?kind=equus_migration").json()
+    assert all(j["kind"] == "equus_migration" for j in filtered["items"])
+    assert any(j["job_id"] == job2["job_id"] for j in filtered["items"])
+
+    # Verify source_filename was populated
+    target_job = next(j for j in filtered["items"] if j["job_id"] == job2["job_id"])
+    assert target_job["source_filename"] == "client.xlsx"
+
+
+@pytest.mark.asyncio
+async def test_equus_migration_artifact_export_security(client: TestClient, tmp_path: Path):
+    from app.core.config import settings
+
+    source = upload(client)
+    migration_job = client.post(
+        f"/api/v1/sources/{source['source_id']}/equus-migration?strategy=TOPIA_ID_WITH_FALLBACK"
+    ).json()
+    job_id = migration_job["job_id"]
+
+    # Simulate completed result pointing to authorized file
+    authorized_dir = settings.report_dir / "equus"
+    authorized_dir.mkdir(parents=True, exist_ok=True)
+    real_import = authorized_dir / f"test_EQUUS_{job_id}.xlsx"
+    real_import.write_bytes(b"PK\x03\x04test_content")
+
+    repo = app.state.repository
+    job = await repo.get_job(job_id)
+    job["status"] = "COMPLETED"
+    job["result"] = {
+        "import_file": str(real_import),
+        "report_file": str(authorized_dir / "missing.xlsx"),
+    }
+    await repo.put_job(job)
+
+    # Reject unsupported artifact parameter
+    bad_artifact = client.get(f"/api/v1/reports/{job_id}/export?artifact=malicious")
+    assert bad_artifact.status_code == 400
+    assert bad_artifact.json()["detail"]["code"] == "INVALID_ARTIFACT"
+
+    # Valid export
+    valid_resp = client.get(f"/api/v1/reports/{job_id}/export?artifact=import")
+    assert valid_resp.status_code == 200
+    assert valid_resp.content == b"PK\x03\x04test_content"
+
+    # Missing file on disk
+    missing_resp = client.get(f"/api/v1/reports/{job_id}/export?artifact=report")
+    assert missing_resp.status_code == 404
+    assert missing_resp.json()["detail"]["code"] == "ARTIFACT_NOT_FOUND"
+
+    # Directory escape / path traversal rejection
+    outside_file = tmp_path / "outside.xlsx"
+    outside_file.write_bytes(b"secret")
+    job["result"]["import_file"] = str(outside_file)
+    await repo.put_job(job)
+
+    escape_resp = client.get(f"/api/v1/reports/{job_id}/export?artifact=import")
+    assert escape_resp.status_code == 403
+    assert escape_resp.json()["detail"]["code"] == "ACCESS_DENIED"
+
+    # Failed job: verify diagnostic header and filename prefix
+    failed_import = authorized_dir / f"test_FAILED_{job_id}.xlsx"
+    failed_import.write_bytes(b"PK\x03\x04failed_content")
+    job["status"] = "FAILED"
+    job["result"] = {
+        "import_file": str(failed_import),
+        "reconciliation": {"status": "FAILED", "is_valid": False, "errors": ["Missing Col 3"]},
+    }
+    await repo.put_job(job)
+
+    failed_resp = client.get(f"/api/v1/reports/{job_id}/export?artifact=import")
+    assert failed_resp.status_code == 200
+    assert failed_resp.headers.get("X-Equus-Diagnostic-Only") == "true"
+    assert "DIAGNOSTIC_ONLY_" in failed_resp.headers.get("Content-Disposition", "")
+
+

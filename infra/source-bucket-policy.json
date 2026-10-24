@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Comment": "Recommended bucket policy for Topia source S3 bucket. Enforces in-transit TLS encryption. Note: Merge with existing bucket policies rather than blindly overwriting. File content validation is enforced at the application layer by Lambda _accept_guard().",
+  "Statement": [
+    {
+      "Sid": "DenyInsecureTransport",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::__SOURCE_BUCKET__",
+        "arn:aws:s3:::__SOURCE_BUCKET__/*"
+      ],
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    },
+    {
+      "Sid": "RestrictNonXlsxIncomingUploads",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:PutObject",
+      "NotResource": "arn:aws:s3:::__SOURCE_BUCKET__/topia/incoming/*.xlsx",
+      "Condition": {
+        "StringNotLike": {
+          "aws:PrincipalArn": [
+            "__ADMIN_ROLE_ARN__",
+            "arn:aws:iam::*:role/aws-service-role/*"
+          ]
+        }
+      }
+    }
+  ]
+}

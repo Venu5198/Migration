@@ -64,6 +64,28 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
+  const handleDownloadArtifact = async (artifact: 'report' | 'import') => {
+    if (!jobId.trim()) return;
+    setExporting(true);
+    setError(null);
+    try {
+      const { blob, filename } = await apiClient.downloadArtifact(jobId.trim(), artifact);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setSuccess(`Exported ${filename} successfully.`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to download artifact.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -102,16 +124,36 @@ export const ReportsPage: React.FC = () => {
           >
             Load Reconciliation
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!jobId.trim() || exporting}
-            isLoading={exporting}
-            onClick={handleDownloadCsv}
-            icon={<Download className="w-4 h-4" />}
-          >
-            Export CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!jobId.trim() || exporting}
+              isLoading={exporting}
+              onClick={handleDownloadCsv}
+              icon={<Download className="w-4 h-4" />}
+            >
+              CSV Preview
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!jobId.trim() || exporting}
+              onClick={() => handleDownloadArtifact('import')}
+              icon={<Download className="w-4 h-4" />}
+            >
+              Equus Migration (.xlsx)
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!jobId.trim() || exporting}
+              onClick={() => handleDownloadArtifact('report')}
+              icon={<Download className="w-4 h-4" />}
+            >
+              Migration Results (.xlsx)
+            </Button>
+          </div>
         </form>
       </Card>
 

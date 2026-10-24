@@ -9,6 +9,7 @@ import {
   GitBranch,
   History,
   LayoutDashboard,
+  Layers,
   PlayCircle,
   Shield,
   Zap,
@@ -24,6 +25,7 @@ export const Sidebar: React.FC = () => {
 
   const navItems = [
     { to: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
+    { to: '/migration', label: 'Topia → Equus Migration', icon: <Layers className="w-4 h-4" /> },
     { to: '/sources', label: 'Workbooks & Sources', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { to: '/profiling', label: 'Data Profiling', icon: <BarChart3 className="w-4 h-4" /> },
     { to: '/mappings', label: 'Field Mapping', icon: <GitBranch className="w-4 h-4" /> },

@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     auth_required: bool = False
     auth_tokens: str = ""
     max_job_attempts: int = 3
-
     enforce_separation_of_duties: bool = True
+    equus_writes_disabled: bool = True
+    equus_target: str = "mock"  # "mock", "none", or "live"
+    demo_writes_enabled: bool = False
 
     def is_production(self) -> bool:
         return self.env.lower() in {"production", "prod"}
@@ -36,6 +38,23 @@ class Settings(BaseSettings):
                     "MIGRATION_MONGODB_URI is required in production "
                     "(ephemeral in-memory persistence is forbidden)"
                 )
+
+    def validate_equus_destination(self, target: str | None = None, demo_writes: bool | None = None) -> None:
+        """Enforce strict fail-closed boundary for target write operations."""
+        eff_target = (target or self.equus_target).lower()
+        eff_demo = self.demo_writes_enabled if demo_writes is None else demo_writes
+        if eff_target == "live":
+            if self.equus_writes_disabled:
+                raise PermissionError(
+                    "Outbound writes to live Equus production systems are strictly disabled by policy (EQUUS_WRITES_DISABLED=true)."
+                )
+            raise NotImplementedError(
+                "Live Equus API adapter is not configured or permitted in this environment."
+            )
+        if eff_demo and eff_target != "mock":
+            raise ValueError(
+                f"Demo writes can ONLY execute against isolated target 'mock', but configured target is '{eff_target}'. Fail closed."
+            )
 
 
 settings = Settings()

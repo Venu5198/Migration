@@ -3,6 +3,7 @@ def reconcile_preview(preview: dict, target_records: list[dict] | None = None) -
     issues = preview.get("issues", [])
     result = {
         "source_records": preview.get("records_evaluated", 0),
+        "header_rows_count": preview.get("header_rows_count", 1),
         "accepted_records": preview.get("eligible_records", 0) - preview.get("rejected_records", 0),
         "rejected_records": preview.get("rejected_records", 0),
         "warning_count": len(preview.get("warnings", [])),

@@ -136,6 +136,8 @@ export interface PreviewRow {
 export interface PreviewResult {
   records_evaluated?: number;
   eligible_records?: number;
+  header_rows_count?: number;
+  data_start_row?: number;
   structural_empty_rows?: number;
   records?: PreviewRecord[];
   warnings?: any[];
@@ -153,19 +155,67 @@ export interface PreviewResult {
   [key: string]: any;
 }
 
+export interface EquusReconciliationResult {
+  is_valid: boolean;
+  status: 'PASS' | 'FAIL' | string;
+  errors: string[];
+  warnings: string[];
+  assignment_id_strategy?: string;
+  source_rows?: number;
+  output_records?: number;
+  insert_records?: number;
+  update_records?: number;
+  target_assignment_ids_count?: number;
+}
+
+export interface EquusMigrationResult {
+  source_name: string;
+  timestamp: string;
+  import_file: string;
+  report_file: string;
+  reconciliation: EquusReconciliationResult;
+  coverage_percentage: number;
+  mapped_columns_count?: number;
+  unmapped_columns_count?: number;
+  total_template_columns?: number;
+  total_source_rows: number;
+  insert_records: number;
+  update_records: number;
+  total_output_records: number;
+  warnings_count: number;
+  status: string;
+  execution_summary?: {
+    target: string;
+    demo_writes_enabled: boolean;
+    status: string;
+    attempted: number;
+    completed: number;
+    [key: string]: any;
+  };
+}
+
 export interface JobResponse {
   job_id: string;
-  kind: 'profile' | 'preview' | string;
+  kind: 'profile' | 'preview' | 'equus_migration' | string;
   source_id: string;
+  source_filename?: string | null;
   status: JobStatus;
   progress: number;
   attempts: number;
   created_at: string;
   updated_at: string;
-  result?: ProfileResult | PreviewResult | any;
+  result?: ProfileResult | PreviewResult | EquusMigrationResult | any;
   failure_code?: string | null;
   cancellation_requested: boolean;
   mapping_id?: string;
+  strategy?: string;
+}
+
+export interface PagedJobs {
+  items: JobResponse[];
+  page: number;
+  page_size: number;
+  total: number;
 }
 
 export interface AuditEvent {

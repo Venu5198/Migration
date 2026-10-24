@@ -80,6 +80,17 @@ class MemoryRepository:
     async def get_job(self, job_id: str) -> dict[str, Any] | None:
         return self.jobs.get(job_id)
 
+    async def list_jobs(
+        self, kind: str | None = None, source_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        jobs = list(self.jobs.values())
+        if kind:
+            jobs = [j for j in jobs if j.get("kind") == kind]
+        if source_id:
+            jobs = [j for j in jobs if j.get("source_id") == source_id]
+        jobs.sort(key=lambda item: item["created_at"], reverse=True)
+        return jobs
+
     async def request_cancel(self, job_id: str) -> None:
         job = self.jobs[job_id]
         job["cancellation_requested"] = True
@@ -252,6 +263,19 @@ class MongoRepository:
 
     async def get_job(self, job_id: str) -> dict | None:
         return await self.db.migration_jobs.find_one({"job_id": job_id}, {"_id": 0})
+
+    async def list_jobs(
+        self, kind: str | None = None, source_id: str | None = None
+    ) -> list[dict]:
+        query: dict[str, Any] = {}
+        if kind:
+            query["kind"] = kind
+        if source_id:
+            query["source_id"] = source_id
+        return [
+            item
+            async for item in self.db.migration_jobs.find(query, {"_id": 0}).sort("created_at", -1)
+        ]
 
     async def request_cancel(self, job_id: str) -> None:
         await self.db.migration_jobs.update_one(

@@ -7,6 +7,7 @@ import {
   MappingResponse,
   MappingUpdate,
   PagedAuditEvents,
+  PagedJobs,
   PagedSources,
   ReconciliationReport,
   SheetSchema,
@@ -127,6 +128,16 @@ export const apiClient = {
   },
 
   // Jobs
+  async listJobs(params?: {
+    kind?: string;
+    source_id?: string;
+    page?: number;
+    page_size?: number;
+  }): Promise<PagedJobs> {
+    const res = await api.get<PagedJobs>('/api/v1/jobs', { params });
+    return res.data;
+  },
+
   async startProfileJob(sourceId: string): Promise<JobResponse> {
     const res = await api.post<JobResponse>(`/api/v1/sources/${sourceId}/profile`);
     return res.data;
@@ -137,6 +148,14 @@ export const apiClient = {
       source_id: sourceId,
       mapping_id: mappingId,
     });
+    return res.data;
+  },
+
+  async startEquusMigration(sourceId: string, strategy?: string): Promise<JobResponse> {
+    const res = await api.post<JobResponse>(
+      `/api/v1/sources/${sourceId}/equus-migration`,
+      { strategy }
+    );
     return res.data;
   },
 
@@ -187,6 +206,24 @@ export const apiClient = {
       responseType: 'blob',
     });
     return res.data;
+  },
+
+  async downloadArtifact(
+    jobId: string,
+    artifact: 'report' | 'import' = 'report'
+  ): Promise<{ blob: Blob; filename: string }> {
+    const res = await api.get(`/api/v1/reports/${jobId}/export`, {
+      params: { artifact },
+      responseType: 'blob',
+    });
+    const disposition = (res.headers && res.headers['content-disposition']) || '';
+    let filename =
+      artifact === 'import' ? `equus_import_${jobId}.xlsx` : `mapping_report_${jobId}.xlsx`;
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    if (match && match[1]) {
+      filename = match[1].trim();
+    }
+    return { blob: res.data, filename };
   },
 
   getExportUrl(jobId: string): string {

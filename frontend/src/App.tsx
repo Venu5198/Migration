@@ -7,6 +7,7 @@ import { AuditPage } from './pages/AuditPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { JobsPage } from './pages/JobsPage';
 import { MappingsPage } from './pages/MappingsPage';
+import { MigrationPage } from './pages/MigrationPage';
 import { PreviewPage } from './pages/PreviewPage';
 import { ProfilingPage } from './pages/ProfilingPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -19,6 +20,7 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<DashboardPage />} />
+            <Route path="migration" element={<MigrationPage />} />
             <Route path="sources" element={<SourcesPage />} />
             <Route path="profiling" element={<ProfilingPage />} />
             <Route path="mappings" element={<MappingsPage />} />

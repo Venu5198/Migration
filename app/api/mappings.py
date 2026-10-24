@@ -9,7 +9,11 @@ from app.core.errors import DomainError
 from app.core.security import require_roles
 from app.schemas import MappingCreate, MappingResponse, MappingStatus, MappingType, MappingUpdate
 from app.services.audit import audit
-from app.services.transform import validate_transformation
+from app.services.transform import (
+    is_blank_or_ambiguous_header,
+    validate_mapping_compatibility,
+    validate_transformation,
+)
 
 router = APIRouter(
     prefix="/api/v1/mappings",
@@ -37,9 +41,12 @@ async def create_mapping(
             "SOURCE_SHEET_NOT_FOUND",
             f"Sheet '{payload.source_sheet}' was not found in the source workbook.",
         )
+    valid_source_fields = set(sheet_match.get("headers", [])) | {
+        h for h in sheet_match.get("technical_headers", []) if h
+    }
     if (
         payload.mapping_type != MappingType.UNRESOLVED
-        and payload.source_field not in sheet_match.get("headers", [])
+        and payload.source_field not in valid_source_fields
     ):
         raise DomainError(
             "SOURCE_FIELD_NOT_FOUND",
@@ -49,8 +56,18 @@ async def create_mapping(
         validate_transformation(payload.transformation)
     except ValueError as exc:
         raise DomainError("INVALID_TRANSFORMATION", str(exc)) from exc
+    try:
+        validate_mapping_compatibility(
+            payload.source_field,
+            payload.target_field,
+            payload.transformation,
+            payload.mapping_type,
+        )
+    except ValueError as exc:
+        raise DomainError("INCOMPATIBLE_FIELD_MAPPING", str(exc), 400) from exc
     if payload.mapping_type == "direct" and payload.transformation:
         raise DomainError("INVALID_MAPPING", "Direct mappings cannot specify a transformation.")
+
     now = datetime.now(UTC)
     mapping = {
         **payload.model_dump(),
@@ -115,7 +132,9 @@ async def update_mapping(
     if m_type == "direct" and t_spec:
         raise DomainError("INVALID_MAPPING", "Direct mappings cannot specify a transformation.")
     t_sheet = updates.get("source_sheet", mapping["source_sheet"])
+    t_sheet = updates.get("source_sheet", mapping["source_sheet"])
     t_field = updates.get("source_field", mapping["source_field"])
+    t_target = updates.get("target_field", mapping["target_field"])
     source = await repo.get_source(mapping["source_id"])
     if source:
         sheet_match = next((s for s in source.get("sheets", []) if s["name"] == t_sheet), None)
@@ -124,11 +143,18 @@ async def update_mapping(
                 "SOURCE_SHEET_NOT_FOUND",
                 f"Sheet '{t_sheet}' was not found in the source workbook.",
             )
-        if m_type != MappingType.UNRESOLVED and t_field not in sheet_match.get("headers", []):
+        valid_source_fields = set(sheet_match.get("headers", [])) | {
+            h for h in sheet_match.get("technical_headers", []) if h
+        }
+        if m_type != MappingType.UNRESOLVED and t_field not in valid_source_fields:
             raise DomainError(
                 "SOURCE_FIELD_NOT_FOUND",
                 f"Field '{t_field}' was not found in sheet '{t_sheet}'.",
             )
+    try:
+        validate_mapping_compatibility(t_field, t_target, t_spec, m_type)
+    except ValueError as exc:
+        raise DomainError("INCOMPATIBLE_FIELD_MAPPING", str(exc), 400) from exc
     mapping.update(updates)
     await repo.put_mapping(mapping)
     if hasattr(repo, "put_mapping_version"):
@@ -169,6 +195,22 @@ async def approve_mapping(
         )
     if mapping["mapping_type"] == "unresolved":
         raise DomainError("UNRESOLVED_MAPPING", "Unresolved mappings cannot be approved.", 409)
+    if is_blank_or_ambiguous_header(mapping["source_field"]):
+        raise DomainError(
+            "AMBIGUOUS_SOURCE_HEADER",
+            f"Mapping with blank or ambiguous source header '{mapping['source_field']}' cannot be approved.",
+            409,
+        )
+    try:
+        validate_mapping_compatibility(
+            mapping["source_field"],
+            mapping["target_field"],
+            mapping.get("transformation"),
+            mapping.get("mapping_type", "direct"),
+        )
+    except ValueError as exc:
+        raise DomainError("INCOMPATIBLE_FIELD_MAPPING", str(exc), 409) from exc
+
     source = await repo.get_source(mapping["source_id"])
     if source:
         sheet_match = next(
@@ -180,7 +222,10 @@ async def approve_mapping(
                 f"Sheet '{mapping['source_sheet']}' was not found in the source workbook.",
                 409,
             )
-        if mapping["source_field"] not in sheet_match.get("headers", []):
+        valid_source_fields = set(sheet_match.get("headers", [])) | {
+            h for h in sheet_match.get("technical_headers", []) if h
+        }
+        if mapping["source_field"] not in valid_source_fields:
             raise DomainError(
                 "SOURCE_FIELD_NOT_FOUND",
                 f"Field '{mapping['source_field']}' is not in sheet '{mapping['source_sheet']}' "
@@ -196,6 +241,7 @@ async def approve_mapping(
                 "Another approver must review.",
                 403,
             )
+
     mapping.update(
         status=MappingStatus.APPROVED,
         approved_at=datetime.now(UTC),

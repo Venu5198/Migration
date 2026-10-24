@@ -218,6 +218,128 @@ DROPDOWN_MAPS: dict[str, dict[str, str]] = {
     },
 }
 
+# Explicit Assignment Identifier Strategy Options:
+# STRATEGY_TOPIA_ID_WITH_FALLBACK (Default Reference): Topia Assignment ID is primary;
+# falls back to Employee Number if missing/null.
+# STRATEGY_EMPLOYEE_NUMBER (Client Test File): Column 5 receives Employee Number directly;
+# Topia ID is stored in CF_TEXT029.
+# NOTE: Final decision between these strategies requires client business confirmation.
+STRATEGY_TOPIA_ID_WITH_FALLBACK = "TOPIA_ID_WITH_FALLBACK"
+STRATEGY_EMPLOYEE_NUMBER = "EMPLOYEE_NUMBER"
+DEFAULT_ASSIGNMENT_IDENTIFIER_STRATEGY = STRATEGY_EMPLOYEE_NUMBER
+
+# Source row-2 technical fields whose spelling differs from the Equus headers.
+# (regex_pattern, replacement_string) applied in order to upper-cased technical keys.
+KEY_ALIASES: list[tuple[str, str]] = [
+    (r"^(ASSIGNMENT!(?:FROM|TO)_COMPANY)_LEVEL(\d)$", r"\1_SEGMENT_LEVEL_\2"),
+    (r"^ASSIGNMENT!GROUP$", "ASSIGNMENT!GROUP_NAME"),
+    (r"^EMPLOYEE!SYSTEM_NUMBER$", "Employee Number"),
+]
+
+# Source columns whose row 2 is a note, a wrong field, or a missing field.
+# Keyed by normalized (lower-case, single-spaced) Topia row-4 label.
+# Value None = deliberately not migrated / drives derived business rule.
+FIELD_OVERRIDES: dict[str, str | None] = {
+    "assignment id": "ASSIGNMENT_CF!CF_TEXT029",  # Topia File Number (legacy id)
+    "nationality 3": "EMPLOYEE_CF!CF_TEXT013",
+    "status category": "ASSIGNMENT!PHASE",
+    "home cost center name": "ASSIGNMENT_CF!CF_TEXT023",
+    "host cost center name": "ASSIGNMENT_CF!CF_TEXT024",
+    "host job level": "ASSIGNMENT!TO_SALARY_GRADE",  # Topia row 2 typo had TO_TITLE
+    "home job level": "ASSIGNMENT!FROM_SALARY_GRADE",
+    "home position id": "ASSIGNMENT_CF!CF_TEXT005",
+    "host position id": "ASSIGNMENT_CF!CF_TEXT009",
+    "cancellation reason": None,  # Drives derived rule ASSIGNMENT!PHASE = 'Cancelled'
+}
+
+# Verified address columns in source mapped to Equus LOCATION_TYPE
+ADDRESS_COLUMNS: dict[str, str] = {
+    "personal home address with effective date": "Departure Residence",
+    "work home address with effective date": "Departure Office",
+    "personal host address with effective date": "Destination Residence",
+    "work host address with effective date": "Destination Office",
+    "personal home address": "Departure Residence",
+    "work home address": "Departure Office",
+    "personal host address": "Destination Residence",
+    "work host address": "Destination Office",
+    "host residence address": "Destination Residence",
+    "host address": "Destination Residence",
+    "home address": "Departure Residence",
+    "departure residence": "Departure Residence",
+    "destination residence": "Destination Residence",
+    "departure office": "Departure Office",
+    "destination office": "Destination Office",
+}
+
+# Verified contact columns in source mapped to (LOCATION_TYPE, CONTACT_TYPE)
+CONTACT_COLUMNS: dict[str, tuple[str, str]] = {
+    "mobile phone number": ("Personal Mobile", "Telephone"),
+    "phone number": ("Personal Mobile", "Telephone"),
+    "personal email": ("Employee Preferred", "Email"),
+    "email": ("Employee Preferred", "Email"),
+    "work phone": ("Work", "Telephone"),
+    "emergency phone": ("Emergency", "Telephone"),
+}
+
+# Verified dependent columns in source mapped to Equus DEPENDENT fields
+DEPENDENT_FIELD_MAP: dict[str, str] = {
+    "dependent first name": "ASSIGNMENT_DEPENDENT!FIRST_NAME",
+    "dependent last name": "ASSIGNMENT_DEPENDENT!LAST_NAME",
+    "dependent middle name": "ASSIGNMENT_DEPENDENT!MIDDLE_NAME",
+    "dependent relationship": "ASSIGNMENT_DEPENDENT!RELATIONSHIP",
+    "dependent gender": "ASSIGNMENT_DEPENDENT!GENDER",
+    "dependent date of birth": "ASSIGNMENT_DEPENDENT!BIRTH_DATE",
+    "dependent birth date": "ASSIGNMENT_DEPENDENT!BIRTH_DATE",
+    "dependent dob": "ASSIGNMENT_DEPENDENT!BIRTH_DATE",
+    "dependent at host": "ASSIGNMENT_DEPENDENT!STATUS",
+    "dependent status": "ASSIGNMENT_DEPENDENT!STATUS",
+    "spouse first name": "ASSIGNMENT_DEPENDENT!FIRST_NAME",
+    "spouse last name": "ASSIGNMENT_DEPENDENT!LAST_NAME",
+    "spouse middle name": "ASSIGNMENT_DEPENDENT!MIDDLE_NAME",
+    "spouse relationship": "ASSIGNMENT_DEPENDENT!RELATIONSHIP",
+    "spouse gender": "ASSIGNMENT_DEPENDENT!GENDER",
+    "spouse date of birth": "ASSIGNMENT_DEPENDENT!BIRTH_DATE",
+    "spouse birth date": "ASSIGNMENT_DEPENDENT!BIRTH_DATE",
+    "spouse dob": "ASSIGNMENT_DEPENDENT!BIRTH_DATE",
+    "spouse status": "ASSIGNMENT_DEPENDENT!STATUS",
+}
+
+# UNRESOLVED CLIENT-DEPENDENT RULES (Documented for client confirmation):
+# 1. RESOURCE_MAP: Empty awaiting client-provided list of Topia names/emails -> Equus usernames.
+RESOURCE_MAP: dict[str, str] = {}
+# 2. DEPENDENT_IMPORT: 'Dependent Import' worksheet contains no employee key.
+# Cannot join without client specification.
+# 3. ADDRESS_COMPONENTS: Client must clarify if City/Postal/Country need regex extraction.
+# 4. PII_NATIONALITY: Third nationality exclusion policy awaiting confirmation.
+
+
+def normalize_identifier(val: Any) -> str | None:
+    """Normalize identifier safely, converting IEEE-754 floats (e.g. 60936.0) to strings."""
+    clean = clean_not_provided(val)
+    if clean is None:
+        return None
+    if isinstance(clean, float):
+        if clean.is_integer():
+            return str(int(clean))
+        return str(clean)
+    s = str(clean).strip()
+    if re.match(r"^\d+\.0$", s):
+        return s[:-2]
+    return s
+
+
+def split_multiline_address(val: Any) -> tuple[str | None, str | None, str | None]:
+    """Split multiline address string by newline into (line_1, line_2, line_3)."""
+    clean = clean_not_provided(val)
+    if not clean:
+        return None, None, None
+    lines = [line.strip() for line in str(clean).splitlines() if line.strip()]
+    line_1 = lines[0] if len(lines) > 0 else None
+    line_2 = lines[1] if len(lines) > 1 else None
+    line_3 = ", ".join(lines[2:]) if len(lines) > 2 else None
+    return line_1, line_2, line_3
+
+
 # Explicit exception mapping: Topia source fields -> Equus technical fields
 # Handles fields where technical header in Topia does not match Equus directly
 EXPLICIT_SOURCE_FIELD_EXCEPTIONS: dict[str, str] = {

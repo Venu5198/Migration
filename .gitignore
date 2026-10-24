@@ -22,3 +22,76 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+local_s3/
+scratch/
+artifacts/
+
+# Secrets and environment configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Frontend
+node_modules/
+dist/
+coverage/
+
+# Local databases and runtime files
+*.sqlite
+*.sqlite3
+*.db
+*.log
+
+# Local migration artifacts and test outputs
+local_s3/
+uploads/
+outputs/
+*.tmp
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Scratch documentation reports and temporary review guides
+docs/CLIENT_*
+docs/DEMO_*
+docs/DEVELOPER_*
+docs/DOCUMENTATION_*
+docs/END_TO_END_*
+docs/FINAL_*
+docs/FRONTEND_*
+docs/INFRASTRUCTURE_*
+docs/LOCAL_*
+docs/NEXT_*
+docs/USER_GUIDE_*
+docs/ARCHITECTURE_AND_API_REFERENCE.md
+docs/local-migration-runner.md
+docs/migration-rule-verification.md
+docs/reference-repository-analysis.md
+docs/image/
+
+# Local synthetic test workbooks
+topia_equus_test_workbooks/
+
+# End-to-end browser test scripts and artifacts
+frontend/e2e/
+frontend/playwright.config.ts
+
+

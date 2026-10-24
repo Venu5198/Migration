@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   Clock,
   Cpu,
+  Layers,
   Play,
+  RefreshCw,
   RotateCw,
   Search,
   StopCircle,
@@ -22,6 +24,28 @@ export const JobsPage: React.FC = () => {
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Recent jobs list
+  const [recentJobs, setRecentJobs] = useState<JobResponse[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [filterKind, setFilterKind] = useState<string>('all');
+
+  const loadRecentJobs = async () => {
+    setRecentLoading(true);
+    try {
+      const params = filterKind === 'all' ? {} : { kind: filterKind };
+      const res = await apiClient.listJobs({ ...params, page: 1, page_size: 25 });
+      setRecentJobs(res.items);
+    } catch {
+      // Soft fail
+    } finally {
+      setRecentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRecentJobs();
+  }, [filterKind]);
 
   const handleFetchJob = async (idToFetch: string) => {
     if (!idToFetch.trim()) return;
@@ -48,6 +72,7 @@ export const JobsPage: React.FC = () => {
       const res = await apiClient.cancelJob(job.job_id);
       setJob(res);
       setSuccess('Job cancellation requested successfully.');
+      loadRecentJobs();
     } catch (err: any) {
       setError(err.message || 'Failed to cancel job.');
     } finally {
@@ -63,7 +88,7 @@ export const JobsPage: React.FC = () => {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Background Jobs</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Inspect asynchronous profiling and transformation worker tasks, view execution leases, attempts, and cancel active jobs.
+          Inspect asynchronous profiling, preview, and Equus migration worker tasks, monitor lease state, and cancel active jobs.
         </p>
       </div>
 
@@ -118,7 +143,7 @@ export const JobsPage: React.FC = () => {
                     ? 'danger'
                     : job.status === 'CANCELLED'
                     ? 'neutral'
-                    : 'info'
+                    : 'navy'
                 }
               >
                 {job.status}
@@ -147,18 +172,18 @@ export const JobsPage: React.FC = () => {
                 <span className="font-mono text-slate-700">{job.source_id.substring(0, 10)}...</span>
               </div>
               <div>
+                <span className="text-slate-400 block font-medium">Source Filename</span>
+                <span className="font-semibold text-slate-800">
+                  {job.source_filename || job.result?.source_name || 'N/A'}
+                </span>
+              </div>
+              <div>
                 <span className="text-slate-400 block font-medium">Execution Progress</span>
                 <span className="font-semibold text-slate-900">{job.progress}%</span>
               </div>
               <div>
                 <span className="text-slate-400 block font-medium">Claim Attempts</span>
                 <span className="font-semibold text-slate-900">{job.attempts}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block font-medium">Cancellation Requested</span>
-                <span className="font-semibold text-slate-900">
-                  {job.cancellation_requested ? 'Yes' : 'No'}
-                </span>
               </div>
             </div>
 
@@ -196,6 +221,94 @@ export const JobsPage: React.FC = () => {
           </div>
         </Card>
       )}
+
+      {/* Recent Jobs Table */}
+      <Card
+        title="Recent Worker Jobs"
+        subtitle="Live jobs registered across worker processes"
+        action={
+          <div className="flex items-center gap-2">
+            <select
+              value={filterKind}
+              onChange={(e) => setFilterKind(e.target.value)}
+              className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
+            >
+              <option value="all">All Kinds</option>
+              <option value="equus_migration">Equus Migration</option>
+              <option value="profile">Profile</option>
+              <option value="preview">Preview</option>
+            </select>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={loadRecentJobs}
+              isLoading={recentLoading}
+              icon={<RefreshCw className={`w-3.5 h-3.5 ${recentLoading ? 'animate-spin' : ''}`} />}
+            >
+              Refresh
+            </Button>
+          </div>
+        }
+      >
+        {recentLoading && recentJobs.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-500">Loading jobs...</div>
+        ) : recentJobs.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-500">No jobs found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-700 uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th className="py-2.5 px-3">Job ID</th>
+                  <th className="py-2.5 px-3">Kind</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">Created</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-800">
+                {recentJobs.map((j) => (
+                  <tr key={j.job_id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
+                      {j.job_id.substring(0, 8)}...
+                    </td>
+                    <td className="py-2.5 px-3 font-semibold text-slate-900 capitalize">
+                      {j.kind.replace('_', ' ')}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <Badge
+                        variant={
+                          j.status === 'COMPLETED'
+                            ? 'success'
+                            : j.status === 'COMPLETED_WITH_ERRORS'
+                            ? 'warning'
+                            : j.status === 'FAILED'
+                            ? 'danger'
+                            : 'navy'
+                        }
+                      >
+                        {j.status}
+                      </Badge>
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-500">
+                      {new Date(j.created_at).toLocaleString()}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleFetchJob(j.job_id)}
+                      >
+                        Inspect
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 };
