@@ -87,8 +87,10 @@ docs/migration-rule-verification.md
 docs/reference-repository-analysis.md
 docs/image/
 
-# Local synthetic test workbooks
-topia_equus_test_workbooks/
+# Synthetic test fixtures
+topia_equus_test_workbooks/~$*
+!topia_equus_test_workbooks/*.xlsx
+!topia_equus_test_workbooks/README.txt
 
 # End-to-end browser test scripts and artifacts
 frontend/e2e/
