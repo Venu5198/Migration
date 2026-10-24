@@ -264,9 +264,7 @@ class MongoRepository:
     async def get_job(self, job_id: str) -> dict | None:
         return await self.db.migration_jobs.find_one({"job_id": job_id}, {"_id": 0})
 
-    async def list_jobs(
-        self, kind: str | None = None, source_id: str | None = None
-    ) -> list[dict]:
+    async def list_jobs(self, kind: str | None = None, source_id: str | None = None) -> list[dict]:
         query: dict[str, Any] = {}
         if kind:
             query["kind"] = kind

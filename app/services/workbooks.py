@@ -2,6 +2,7 @@ import hashlib
 import re
 import uuid
 from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 from typing import BinaryIO
@@ -67,9 +68,6 @@ def _type_name(value: object) -> str:
     return "string"
 
 
-from dataclasses import dataclass, field
-
-
 @dataclass
 class SheetLayout:
     kind: str  # "multi_row", "single_row", "empty"
@@ -102,7 +100,10 @@ def detect_sheet_layout(ws) -> SheetLayout:
         "!" in str(v) for v in r1 if v is not None
     )
     has_rules = any(
-        any(k in str(v).lower() for k in ["date format", "dropdown", "instructions", "yes/no", "yesno"])
+        any(
+            k in str(v).lower()
+            for k in ["date format", "dropdown", "instructions", "yes/no", "yesno"]
+        )
         for v in r1
         if v is not None
     )
@@ -285,4 +286,3 @@ def inspect_workbook(path: Path) -> list[SheetSchema]:
         )
     workbook.close()
     return schemas
-

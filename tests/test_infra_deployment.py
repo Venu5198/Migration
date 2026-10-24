@@ -10,8 +10,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INFRA_DIR = PROJECT_ROOT / "infra"
 FILTER_FILE = INFRA_DIR / "s3-notification-filter.json"
@@ -62,7 +60,7 @@ def test_merge_into_empty_configuration():
 
 
 def test_merge_preserves_unrelated_notifications():
-    """Verify that existing SQS, SNS, EventBridge, and unrelated Lambda triggers are strictly preserved."""
+    """Verify existing SQS, SNS, EventBridge, and unrelated Lambda triggers are preserved."""
     function_arn = "arn:aws:lambda:us-east-1:123456789012:function:topia-equus-migration"
     existing_config = {
         "QueueConfigurations": [
@@ -110,7 +108,7 @@ def test_merge_preserves_unrelated_notifications():
     # 2. Both Lambda configurations exist in the merged output
     lambdas = merged["LambdaFunctionConfigurations"]
     assert len(lambdas) == 2
-    lambda_ids = [l["Id"] for l in lambdas]
+    lambda_ids = [cfg["Id"] for cfg in lambdas]
     assert "unrelated-virus-scanner" in lambda_ids
     assert "topia-to-equus-migration" in lambda_ids
 
@@ -209,7 +207,7 @@ def test_merge_cli_execution_with_subprocess():
 
 
 def test_bucket_policy_tls_enforcement_structure():
-    """Verify that source-bucket-policy.json enforces TLS and contains required safety conditions."""
+    """Verify source-bucket-policy.json enforces TLS and contains required safety conditions."""
     assert POLICY_FILE.exists(), "infra/source-bucket-policy.json must exist"
     policy_data = json.loads(POLICY_FILE.read_text(encoding="utf-8"))
 

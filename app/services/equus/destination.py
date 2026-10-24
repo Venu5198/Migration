@@ -1,6 +1,7 @@
 """Mock Equus destination adapter for isolated, verifiable demo-write execution.
 
-Provides an isolated local destination dataset (employees, assignments, addresses, contacts, dependents).
+Provides an isolated local destination dataset (employees, assignments, addresses, contacts,
+dependents).
 Ensures safe demonstration of INSERT and UPDATE operations without live Equus API connections.
 Includes strict fail-closed safety checks, snapshotting, and destination read-back verification.
 """
@@ -185,7 +186,9 @@ class MockEquusDestination:
                     summary.errors.append(
                         {
                             "record_index": rec_idx,
-                            "error": f"Missing required identifier: emp_no={emp_no}, asg_id={asg_id}",
+                            "error": (
+                                f"Missing required identifier: emp_no={emp_no}, asg_id={asg_id}"
+                            ),
                         }
                     )
                     continue
@@ -258,7 +261,9 @@ class MockEquusDestination:
                     summary.errors.append(
                         {
                             "record_index": rec_idx,
-                            "error": "Child UPDATE row missing required Assignment Identifier (Col 5)",
+                            "error": (
+                                "Child UPDATE row missing required Assignment Identifier (Col 5)"
+                            ),
                         }
                     )
                     continue

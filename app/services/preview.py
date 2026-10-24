@@ -14,7 +14,7 @@ from app.services.workbooks import detect_sheet_layout
 
 def preview_direct_mappings(path: Path, mappings: list[dict]) -> dict:
     """Produce deterministic proposed records for approved direct mappings only.
-    
+
     Excludes header, instruction, and metadata rows from data evaluation.
     Enforces source-to-target field compatibility and rejects ambiguous or blank headers.
     """
@@ -52,7 +52,9 @@ def preview_direct_mappings(path: Path, mappings: list[dict]) -> dict:
                 {
                     "code": "AMBIGUOUS_SOURCE_HEADER",
                     "mapping_id": m_id,
-                    "message": f"Blank or ambiguous source header '{src_field}' cannot be previewed.",
+                    "message": (
+                        f"Blank or ambiguous source header '{src_field}' cannot be previewed."
+                    ),
                 }
             )
             continue
@@ -147,4 +149,3 @@ def preview_direct_mappings(path: Path, mappings: list[dict]) -> dict:
         "rejected_records": len({(item["sheet"], item["row"]) for item in issues}),
         "equus_writes": False,
     }
-

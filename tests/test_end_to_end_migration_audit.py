@@ -6,25 +6,27 @@ and verifies defensive edge cases and failure semantics.
 """
 
 import sys
-from datetime import datetime, timezone
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import openpyxl
 import pytest
+from openpyxl.utils.exceptions import InvalidFileException
+
+from app.services.equus import (
+    STRATEGY_EMPLOYEE_NUMBER,
+    run_equus_migration_pipeline,
+)
+from app.services.equus.parser import parse_three_row_workbook
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LAMBDA_SRC = PROJECT_ROOT / "lambda" / "src"
 if str(LAMBDA_SRC) not in sys.path:
     sys.path.insert(0, str(LAMBDA_SRC))
 
-import handler
-from app.services.equus import (
-    STRATEGY_EMPLOYEE_NUMBER,
-    STRATEGY_TOPIA_ID_WITH_FALLBACK,
-    run_equus_migration_pipeline,
-)
-from app.services.equus.parser import parse_three_row_workbook
+import handler  # noqa: E402
+
 FIXTURES_DIR = PROJECT_ROOT / "topia_equus_test_workbooks"
 BASIC_FIXTURE = FIXTURES_DIR / "01_valid_basic.xlsx"
 NUMERIC_FIXTURE = FIXTURES_DIR / "02_valid_numeric_ids.xlsx"
@@ -33,7 +35,7 @@ MANY_ROWS_FIXTURE = FIXTURES_DIR / "05_valid_many_rows.xlsx"
 
 
 def test_e2e_valid_workflow_openpyxl_deep_inspection(tmp_path: Path):
-    """Deep cell-level openpyxl inspection of generated Equus import and mapping report workbooks."""
+    """Deep cell-level openpyxl inspection of generated Equus import and report workbooks."""
     res = run_equus_migration_pipeline(
         source_path=BASIC_FIXTURE,
         output_dir=tmp_path,
@@ -99,7 +101,9 @@ def test_e2e_valid_workflow_openpyxl_deep_inspection(tmp_path: Path):
                 str(cell_val)[4] == "-" and str(cell_val)[7] == "-"
             )
         # Verify country fields are ISO-3 alpha (3 letters)
-        if "Match Country Code" in str(rule_val) or ("COUNTRY" in str(header_key).upper() and "CODE" in str(header_key).upper()):
+        if "Match Country Code" in str(rule_val) or (
+            "COUNTRY" in str(header_key).upper() and "CODE" in str(header_key).upper()
+        ):
             assert len(str(cell_val)) == 3
             assert str(cell_val).isupper()
 
@@ -123,7 +127,12 @@ def test_e2e_valid_workflow_openpyxl_deep_inspection(tmp_path: Path):
     # 2. Inspect Mapping Results Report at Cell Level
     # =========================================================================
     wb_report = openpyxl.load_workbook(report_path, data_only=True)
-    expected_tabs = ["Executive Summary", "Column Mappings", "Translations Applied", "Warnings & Issues"]
+    expected_tabs = [
+        "Executive Summary",
+        "Column Mappings",
+        "Translations Applied",
+        "Warnings & Issues",
+    ]
     assert wb_report.sheetnames == expected_tabs
 
     # Tab 1: Executive Summary verification
@@ -154,7 +163,7 @@ def test_e2e_valid_workflow_openpyxl_deep_inspection(tmp_path: Path):
 
 
 def test_e2e_multiple_employees_and_assignments(tmp_path: Path):
-    """Verify that multiple employees and multiple assignments generate distinct keys without collision."""
+    """Verify that multiple employees and assignments generate distinct keys without collision."""
     res = run_equus_migration_pipeline(
         source_path=MANY_ROWS_FIXTURE,
         output_dir=tmp_path,
@@ -178,11 +187,13 @@ def test_e2e_multiple_employees_and_assignments(tmp_path: Path):
     assert len(insert_rows) >= 2
     # Verify all generated assignment identifiers on INSERT rows are unique
     all_assign_ids = [assign_id for _, assign_id in insert_rows]
-    assert len(all_assign_ids) == len(set(all_assign_ids)), "Assignment identifiers must not collide"
+    assert len(all_assign_ids) == len(set(all_assign_ids)), (
+        "Assignment identifiers must not collide"
+    )
 
 
 def test_e2e_missing_optional_fields_remain_clean_blanks(tmp_path: Path):
-    """Verify that missing optional values in source files become clean None cells, not 'null' or 'Not Provided'."""
+    """Verify missing optional source values become clean None cells, not 'null'."""
     res = run_equus_migration_pipeline(
         source_path=BLANKS_FIXTURE,
         output_dir=tmp_path,
@@ -212,12 +223,12 @@ def test_e2e_corrupt_and_invalid_workbooks(tmp_path: Path):
     # 2. Corrupt file content
     corrupt_file = tmp_path / "corrupt.xlsx"
     corrupt_file.write_bytes(b"This is completely corrupt non-zip text data")
-    with pytest.raises(Exception):
+    with pytest.raises((InvalidFileException, zipfile.BadZipFile)):
         parse_three_row_workbook(corrupt_file)
 
 
 def test_e2e_lambda_missing_source_object_fails(tmp_path: Path, monkeypatch):
-    """Verify that if S3 get_object fails (e.g. 404), the Lambda handler propagates the error to SQS DLQ."""
+    """Verify that if S3 get_object fails (404), Lambda handler propagates error to SQS DLQ."""
     mock_s3 = MagicMock()
     mock_s3.get_object.side_effect = Exception("NoSuchKey: The specified key does not exist.")
     monkeypatch.setattr(handler, "get_s3_client", lambda: mock_s3)
@@ -233,7 +244,7 @@ def test_e2e_lambda_missing_source_object_fails(tmp_path: Path, monkeypatch):
 
 
 def test_e2e_lambda_partial_upload_failure_does_not_claim_success(tmp_path: Path, monkeypatch):
-    """Verify that if report upload fails after import upload succeeds, the invocation raises and fails."""
+    """Verify that if report upload fails after import succeeds, invocation raises and fails."""
     sample_bytes = BASIC_FIXTURE.read_bytes()
     mock_s3 = MagicMock()
     mock_s3.get_object.return_value = {"Body": MagicMock(read=lambda: sample_bytes)}

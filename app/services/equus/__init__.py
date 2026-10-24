@@ -77,7 +77,6 @@ def run_equus_migration_pipeline(
     # 4. Execute against isolated demo destination if enabled and reconciliation passed
     from app.core.config import settings
 
-
     should_demo_write = (
         settings.demo_writes_enabled if demo_writes_enabled is None else demo_writes_enabled
     )
@@ -129,9 +128,13 @@ def run_equus_migration_pipeline(
         "insert_records": len(transform_result.insert_records),
         "update_records": len(transform_result.update_records),
         "total_output_records": len(transform_result.all_output_records),
-        "attempted_records": recon_result.get("attempted_records", len(transform_result.all_output_records)),
+        "attempted_records": recon_result.get(
+            "attempted_records", len(transform_result.all_output_records)
+        ),
         "accepted_records": recon_result.get("accepted_records", 0),
-        "rejected_records": recon_result.get("rejected_records", len(transform_result.all_output_records)),
+        "rejected_records": recon_result.get(
+            "rejected_records", len(transform_result.all_output_records)
+        ),
         "warnings_count": len(transform_result.warnings),
         "status": recon_result["status"],
         "execution_summary": exec_summary.to_dict()
@@ -139,7 +142,9 @@ def run_equus_migration_pipeline(
         else {
             "target": "none",
             "demo_writes_enabled": False,
-            "status": "PLANNED_ONLY_SAFE_MODE" if not should_demo_write else "BLOCKED_RECONCILIATION_FAILED",
+            "status": "PLANNED_ONLY_SAFE_MODE"
+            if not should_demo_write
+            else "BLOCKED_RECONCILIATION_FAILED",
             "attempted": 0,
             "completed": 0,
         },

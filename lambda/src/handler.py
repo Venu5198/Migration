@@ -25,7 +25,7 @@ import os
 import posixpath
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote_plus
@@ -46,9 +46,7 @@ from app.services.equus import (  # noqa: E402
 log = logging.getLogger("equus.migration.lambda")
 if not log.handlers:
     _handler = logging.StreamHandler()
-    _handler.setFormatter(
-        logging.Formatter("[%(levelname)s] %(asctime)s - %(name)s: %(message)s")
-    )
+    _handler.setFormatter(logging.Formatter("[%(levelname)s] %(asctime)s - %(name)s: %(message)s"))
     log.addHandler(_handler)
 log.setLevel(logging.INFO)
 
@@ -129,7 +127,9 @@ def _extract_targets(event: dict[str, Any]) -> list[tuple[str, str, int | None]]
         size = event.get("size")
 
         if not bucket_name or not raw_key:
-            raise ValueError("Direct invocation requires non-empty 'source_bucket' and 'source_key'.")
+            raise ValueError(
+                "Direct invocation requires non-empty 'source_bucket' and 'source_key'."
+            )
 
         decoded_key = unquote_plus(raw_key)
         return [(str(bucket_name), decoded_key, size)]
@@ -170,7 +170,9 @@ def _accept_guard(
     # 4. Anti-loop safeguard (prevent re-triggering on own output)
     clean_dest_prefix = dest_prefix if dest_prefix.endswith("/") else f"{dest_prefix}/"
     if bucket == dest_bucket and key.startswith(clean_dest_prefix):
-        return f"Key '{key}' is inside destination prefix '{clean_dest_prefix}' (anti-loop protection)"
+        return (
+            f"Key '{key}' is inside destination prefix '{clean_dest_prefix}' (anti-loop protection)"
+        )
 
     # 5. Payload size upper bound
     if size is not None and size > max_bytes:
@@ -203,11 +205,13 @@ def lambda_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]
         skip_reason = _accept_guard(bucket, key, size, dest_bucket, dest_prefix)
         if skip_reason:
             log.info("Skipping s3://%s/%s: %s", bucket, key, skip_reason)
-            results.append({
-                "source": f"s3://{bucket}/{key}",
-                "status": "SKIPPED",
-                "reason": skip_reason,
-            })
+            results.append(
+                {
+                    "source": f"s3://{bucket}/{key}",
+                    "status": "SKIPPED",
+                    "reason": skip_reason,
+                }
+            )
             continue
 
         log.info("Processing migration for s3://%s/%s", bucket, key)
@@ -240,19 +244,29 @@ def lambda_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]
                     overwrite=True,
                 )
             except Exception as exc:
-                log.error("Transformation pipeline failed for s3://%s/%s: %s", bucket, key, exc, exc_info=True)
+                log.error(
+                    "Transformation pipeline failed for s3://%s/%s: %s",
+                    bucket,
+                    key,
+                    exc,
+                    exc_info=True,
+                )
                 raise
 
             generated_import = Path(pipeline_result["import_file"])
             generated_report = Path(pipeline_result["report_file"])
 
             if not generated_import.exists():
-                raise FileNotFoundError(f"Pipeline did not generate expected import file: {generated_import}")
+                raise FileNotFoundError(
+                    f"Pipeline did not generate expected import file: {generated_import}"
+                )
             if not generated_report.exists():
-                raise FileNotFoundError(f"Pipeline did not generate expected report file: {generated_report}")
+                raise FileNotFoundError(
+                    f"Pipeline did not generate expected report file: {generated_report}"
+                )
 
             # Prepare timestamped destination keys matching client specifications
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
             out_key = f"{dest_prefix}{stem}_EQUUS_{timestamp}.xlsx"
             report_key = f"{dest_prefix}reports/{stem}_MAPPING_REPORT_{timestamp}.xlsx"
             s3_metadata = {
@@ -280,7 +294,13 @@ def lambda_handler(event: dict[str, Any], context: Any = None) -> dict[str, Any]
                     Metadata=s3_metadata,
                 )
             except Exception as exc:
-                log.error("Failed to upload destination outputs for s3://%s/%s: %s", bucket, key, exc, exc_info=True)
+                log.error(
+                    "Failed to upload destination outputs for s3://%s/%s: %s",
+                    bucket,
+                    key,
+                    exc,
+                    exc_info=True,
+                )
                 raise
 
             summary = {

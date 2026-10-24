@@ -37,7 +37,12 @@ def is_blank_or_ambiguous_header(name: str | None) -> bool:
     if not name or not str(name).strip():
         return True
     clean = str(name).strip().lower()
-    return clean.startswith("__blank_") or clean.startswith("_blank_") or clean == "unnamed" or clean.startswith("unnamed:")
+    return (
+        clean.startswith("__blank_")
+        or clean.startswith("_blank_")
+        or clean == "unnamed"
+        or clean.startswith("unnamed:")
+    )
 
 
 def is_date_identifier(name: str | None) -> bool:
@@ -55,7 +60,19 @@ def is_country_identifier(name: str | None) -> bool:
     clean = str(name).strip().lower()
     if clean.endswith("_country") or clean.startswith("country_") or clean in COUNTRY_FIELDS:
         return True
-    return any(k in clean for k in ["country_code", "home country", "host country", "!from_country", "!to_country", "from_country", "to_country", "citizenship"])
+    return any(
+        k in clean
+        for k in [
+            "country_code",
+            "home country",
+            "host country",
+            "!from_country",
+            "!to_country",
+            "from_country",
+            "to_country",
+            "citizenship",
+        ]
+    )
 
 
 def validate_mapping_compatibility(
@@ -64,14 +81,18 @@ def validate_mapping_compatibility(
     transformation: dict[str, Any] | None = None,
     mapping_type: str = "direct",
 ) -> None:
-    """Validate source-to-target field compatibility, rejecting invalid date/country pairings and blank headers."""
+    """Validate source-to-target field compatibility.
+
+    Rejects invalid date/country pairings and blank headers.
+    """
     if mapping_type in {"unresolved", "excluded"}:
         return
 
     # Task 5: Blank headers cannot be mapped to target fields
     if is_blank_or_ambiguous_header(source_field):
         raise ValueError(
-            f"Ambiguous or empty source header '{source_field}' cannot be mapped to target field '{target_field}'. Review and label the column first."
+            f"Ambiguous or empty source header '{source_field}' cannot be mapped to target "
+            f"field '{target_field}'. Review and label the column first."
         )
 
     # Check for date transformation
@@ -80,32 +101,43 @@ def validate_mapping_compatibility(
         trans_op = str(transformation.get("op", "")).lower()
 
     is_date_trans = any(k in trans_op for k in ["date", "us_date", "date_format"]) or (
-        transformation and any("date" in str(k).lower() or "date" in str(v).lower() for k, v in transformation.items())
+        transformation
+        and any(
+            "date" in str(k).lower() or "date" in str(v).lower() for k, v in transformation.items()
+        )
     )
 
     # Task 4 & 6: Date transformation or date source cannot be applied to a country field
     if is_country_identifier(target_field):
         if is_date_trans:
             raise ValueError(
-                f"Cannot apply date-format transformation to country code field '{target_field}'. Valid country transformation required."
+                f"Cannot apply date-format transformation to country code field '{target_field}'. "
+                "Valid country transformation required."
             )
         if is_date_identifier(source_field):
             raise ValueError(
-                f"Incompatible mapping: cannot map date source field '{source_field}' to country code field '{target_field}'."
+                f"Incompatible mapping: cannot map date source field '{source_field}' "
+                f"to country code field '{target_field}'."
             )
 
     # Country transformation or country source cannot be applied to a date field
     is_country_trans = any(k in trans_op for k in ["country", "iso3"]) or (
-        transformation and any("country" in str(k).lower() or "iso3" in str(v).lower() for k, v in transformation.items())
+        transformation
+        and any(
+            "country" in str(k).lower() or "iso3" in str(v).lower()
+            for k, v in transformation.items()
+        )
     )
     if is_date_identifier(target_field):
         if is_country_trans:
             raise ValueError(
-                f"Cannot apply country transformation to date field '{target_field}'. Valid date transformation required."
+                f"Cannot apply country transformation to date field '{target_field}'. "
+                "Valid date transformation required."
             )
         if is_country_identifier(source_field):
             raise ValueError(
-                f"Incompatible mapping: cannot map country source field '{source_field}' to date field '{target_field}'."
+                f"Incompatible mapping: cannot map country source field '{source_field}' "
+                f"to date field '{target_field}'."
             )
 
 
@@ -127,10 +159,12 @@ def transform_value(value: object, specification: dict[str, Any] | None) -> obje
         return {"trim": value.strip, "upper": value.upper, "lower": value.lower}[operation]()
     if operation in {"us_date", "date_format"}:
         from app.services.equus.mapping_config import convert_us_date
+
         converted, _ = convert_us_date(value)
         return converted if converted is not None else value
     if operation in {"iso3", "country_code"}:
         from app.services.equus.mapping_config import convert_country_to_iso3
+
         converted, _ = convert_country_to_iso3(value)
         return converted if converted is not None else value
     return value
@@ -147,4 +181,3 @@ def required_issue(value: object, *, sheet: str, row: int, field: str) -> Valida
             field=field,
         )
     return None
-

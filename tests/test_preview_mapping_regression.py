@@ -3,20 +3,15 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.errors import DomainError
 from app.main import app
 from app.schemas import MappingStatus, MappingType
 from app.services.preview import preview_direct_mappings
 from app.services.profiling import profile_workbook
 from app.services.reconciliation import reconcile_preview
 from app.services.transform import (
-    is_blank_or_ambiguous_header,
-    is_country_identifier,
-    is_date_identifier,
     validate_mapping_compatibility,
 )
-from app.services.workbooks import detect_sheet_layout, inspect_workbook
-from app.workers.worker import process_once
+from app.services.workbooks import inspect_workbook
 
 NEG_FIXTURE = Path("topia_equus_test_workbooks/04_negative_missing_employee_id.xlsx")
 VALID_FIXTURE = Path("topia_equus_test_workbooks/01_valid_basic.xlsx")
@@ -42,7 +37,7 @@ def test_source_workbook_structure_inspection():
     assert sheet.header_rows_count == 4
     assert sheet.data_start_row == 5
 
-    # Canonical headers must be the meaningful human display headers, NOT row 1 rules or synthetic blanks
+    # Canonical headers must be meaningful display headers, not row 1 rules or synthetic blanks
     expected_headers = [
         "Full Name",
         "First Name",
@@ -136,12 +131,14 @@ def test_preview_pipeline_excludes_header_rows_and_counts_data_rows():
     assert rec2["proposed"]["home_country"] == "India"
 
     # Header strings must NEVER appear in proposed values
-    all_values = [
-        str(v)
-        for r in records
-        for v in r["proposed"].values()
-    ]
-    for forbidden in ["EMPLOYEE!BIRTH_DATE", "Date of Birth", "Birth Date", "US Date Format", "Match dropdown"]:
+    all_values = [str(v) for r in records for v in r["proposed"].values()]
+    for forbidden in [
+        "EMPLOYEE!BIRTH_DATE",
+        "Date of Birth",
+        "Birth Date",
+        "US Date Format",
+        "Match dropdown",
+    ]:
         assert forbidden not in all_values
 
 
@@ -158,7 +155,9 @@ def test_profiling_excludes_header_rows():
 def test_cannot_map_date_transformation_or_date_source_to_country_code():
     """Task 4: A date-format transformation cannot be applied to a country-code field."""
     # 1. Date transform on country target
-    with pytest.raises(ValueError, match="Cannot apply date-format transformation to country code field"):
+    with pytest.raises(
+        ValueError, match="Cannot apply date-format transformation to country code field"
+    ):
         validate_mapping_compatibility(
             source_field="Country",
             target_field="country_code",
@@ -167,7 +166,9 @@ def test_cannot_map_date_transformation_or_date_source_to_country_code():
         )
 
     # 2. Date source field on country target
-    with pytest.raises(ValueError, match="cannot map date source field 'US Date Format' to country code field"):
+    with pytest.raises(
+        ValueError, match="cannot map date source field 'US Date Format' to country code field"
+    ):
         validate_mapping_compatibility(
             source_field="US Date Format",
             target_field="country_code",
@@ -175,7 +176,9 @@ def test_cannot_map_date_transformation_or_date_source_to_country_code():
             mapping_type="direct",
         )
 
-    with pytest.raises(ValueError, match="cannot map date source field 'EMPLOYEE!BIRTH_DATE' to country code field"):
+    with pytest.raises(
+        ValueError, match="cannot map date source field 'EMPLOYEE!BIRTH_DATE' to country code field"
+    ):
         validate_mapping_compatibility(
             source_field="EMPLOYEE!BIRTH_DATE",
             target_field="country_code",
@@ -183,7 +186,9 @@ def test_cannot_map_date_transformation_or_date_source_to_country_code():
             mapping_type="direct",
         )
 
-    with pytest.raises(ValueError, match="cannot map date source field 'Birth Date' to country code field"):
+    with pytest.raises(
+        ValueError, match="cannot map date source field 'Birth Date' to country code field"
+    ):
         validate_mapping_compatibility(
             source_field="Birth Date",
             target_field="country_code",
@@ -216,7 +221,13 @@ def test_incompatible_mappings_rejected_by_api_endpoints(client: TestClient):
     with open(NEG_FIXTURE, "rb") as f:
         upload_resp = client.post(
             "/api/v1/sources/upload",
-            files={"file": ("04_negative_missing_employee_id.xlsx", f.read(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            files={
+                "file": (
+                    "04_negative_missing_employee_id.xlsx",
+                    f.read(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
         )
     assert upload_resp.status_code == 201
     source = upload_resp.json()
@@ -236,7 +247,11 @@ def test_incompatible_mappings_rejected_by_api_endpoints(client: TestClient):
         },
     )
     assert res_blank.status_code in {400, 422}
-    assert "AMBIGUOUS_SOURCE_HEADER" in res_blank.text or "INCOMPATIBLE_FIELD_MAPPING" in res_blank.text or "SOURCE_FIELD_NOT_FOUND" in res_blank.text
+    assert (
+        "AMBIGUOUS_SOURCE_HEADER" in res_blank.text
+        or "INCOMPATIBLE_FIELD_MAPPING" in res_blank.text
+        or "SOURCE_FIELD_NOT_FOUND" in res_blank.text
+    )
 
     # 2. Attempting to map date field to country_code must fail
     res_date_to_country = client.post(
@@ -276,7 +291,7 @@ def test_incompatible_mappings_rejected_by_api_endpoints(client: TestClient):
 
 
 def test_preview_with_incompatible_or_blank_mapping_generates_warnings():
-    """Task 4, 5, 6: Preview pipeline suppresses incompatible or blank mappings and adds warnings."""
+    """Tasks 4-6: Preview pipeline suppresses incompatible/blank mappings and adds warnings."""
     incompatible_mappings = [
         {
             "mapping_id": "m-bad-date",
@@ -316,13 +331,25 @@ def test_cross_workbook_mapping_id_isolation(client: TestClient):
     with open(NEG_FIXTURE, "rb") as f:
         src1 = client.post(
             "/api/v1/sources/upload",
-            files={"file": ("wb1.xlsx", f.read(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            files={
+                "file": (
+                    "wb1.xlsx",
+                    f.read(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
         ).json()
 
     with open(VALID_FIXTURE, "rb") as f:
         src2 = client.post(
             "/api/v1/sources/upload",
-            files={"file": ("wb2.xlsx", f.read(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            files={
+                "file": (
+                    "wb2.xlsx",
+                    f.read(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
         ).json()
 
     # Create mapping on src1
@@ -346,7 +373,11 @@ def test_cross_workbook_mapping_id_isolation(client: TestClient):
     )
     assert bad_preview.status_code == 404
     payload = bad_preview.json()
-    code = payload.get("detail", {}).get("code") if "detail" in payload else payload.get("error", {}).get("code")
+    code = (
+        payload.get("detail", {}).get("code")
+        if "detail" in payload
+        else payload.get("error", {}).get("code")
+    )
     assert code == "MAPPING_NOT_FOUND"
 
 

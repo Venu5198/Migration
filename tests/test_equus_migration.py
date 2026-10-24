@@ -748,4 +748,3 @@ def test_strategy_consistency_in_pipeline_and_report(tmp_path: Path):
         for r in range(1, ws_summary.max_row + 1)
     }
     assert summary_dict["Assignment Identifier Strategy"] == STRATEGY_TOPIA_ID_WITH_FALLBACK
-

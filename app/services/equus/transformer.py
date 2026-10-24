@@ -11,7 +11,6 @@ from app.services.equus.mapping_config import (
     CONTACT_COLUMNS,
     DEFAULT_ASSIGNMENT_IDENTIFIER_STRATEGY,
     DEPENDENT_FIELD_MAP,
-    DROPDOWN_MAPS,
     FIELD_OVERRIDES,
     KEY_ALIASES,
     STRATEGY_EMPLOYEE_NUMBER,
@@ -394,19 +393,13 @@ def transform_topia_to_equus(
             or dep.get("lname")
         )
         mname = clean_not_provided(
-            dep.get("middle_name")
-            or dep.get("MIDDLE_NAME")
-            or dep.get("dependent_middle_name")
+            dep.get("middle_name") or dep.get("MIDDLE_NAME") or dep.get("dependent_middle_name")
         )
         rel = clean_not_provided(
-            dep.get("relationship")
-            or dep.get("RELATIONSHIP")
-            or dep.get("dependent_relationship")
+            dep.get("relationship") or dep.get("RELATIONSHIP") or dep.get("dependent_relationship")
         )
         gender = clean_not_provided(
-            dep.get("gender")
-            or dep.get("GENDER")
-            or dep.get("dependent_gender")
+            dep.get("gender") or dep.get("GENDER") or dep.get("dependent_gender")
         )
         dob = clean_not_provided(
             dep.get("birth_date")
@@ -516,10 +509,9 @@ def transform_topia_to_equus(
                 or dep.get("topia_id")
                 or dep.get("asg_id")
             )
-            dep_name = (
-                f"{dep.get('first_name') or dep.get('FIRST_NAME') or ''} {dep.get('last_name') or dep.get('LAST_NAME') or ''}".strip()
-                or f"Record #{dep_idx}"
-            )
+            dep_fn = dep.get("first_name") or dep.get("FIRST_NAME") or ""
+            dep_ln = dep.get("last_name") or dep.get("LAST_NAME") or ""
+            dep_name = f"{dep_fn} {dep_ln}".strip() or f"Record #{dep_idx}"
 
             target_asg_id: str | None = None
 
@@ -535,8 +527,9 @@ def transform_topia_to_equus(
                             "code": "ASSIGNMENT_LINKAGE_FALLBACK",
                             "source_row": None,
                             "warning": (
-                                f"Dependent '{dep_name}' specified unknown assignment_id '{dep_asg}'; "
-                                f"fell back to employee '{dep_emp}' primary assignment '{target_asg_id}'"
+                                f"Dependent '{dep_name}' specified unknown assignment_id "
+                                f"'{dep_asg}'; fell back to employee '{dep_emp}' primary "
+                                f"assignment '{target_asg_id}'"
                             ),
                         }
                     )
@@ -545,7 +538,10 @@ def transform_topia_to_equus(
                         {
                             "code": "UNLINKED_DEPENDENT_RECORD",
                             "source_row": None,
-                            "warning": f"Dependent '{dep_name}' references unknown assignment '{dep_asg}'; record omitted",
+                            "warning": (
+                                f"Dependent '{dep_name}' references unknown assignment "
+                                f"'{dep_asg}'; record omitted"
+                            ),
                         }
                     )
                     continue
@@ -561,8 +557,9 @@ def transform_topia_to_equus(
                                 "code": "AMBIGUOUS_DEPENDENT_LINKAGE",
                                 "source_row": None,
                                 "warning": (
-                                    f"Dependent '{dep_name}' references employee '{dep_emp}' who has "
-                                    f"{len(matched_asgs)} assignments; linked to primary assignment '{target_asg_id}'"
+                                    f"Dependent '{dep_name}' references employee '{dep_emp}' who "
+                                    f"has {len(matched_asgs)} assignments; linked to primary "
+                                    f"assignment '{target_asg_id}'"
                                 ),
                             }
                         )
@@ -571,7 +568,10 @@ def transform_topia_to_equus(
                         {
                             "code": "ORPHAN_DEPENDENT_RECORD",
                             "source_row": None,
-                            "warning": f"Dependent '{dep_name}' references non-existent employee '{dep_emp}'; record omitted",
+                            "warning": (
+                                f"Dependent '{dep_name}' references non-existent employee "
+                                f"'{dep_emp}'; record omitted"
+                            ),
                         }
                     )
                     continue
@@ -580,7 +580,10 @@ def transform_topia_to_equus(
                     {
                         "code": "UNLINKED_DEPENDENT_RECORD",
                         "source_row": None,
-                        "warning": f"Dependent '{dep_name}' is missing both employee and assignment identifiers; record omitted",
+                        "warning": (
+                            f"Dependent '{dep_name}' is missing both employee and assignment "
+                            "identifiers; record omitted"
+                        ),
                     }
                 )
                 continue
@@ -811,4 +814,3 @@ def transform_topia_to_equus(
         coverage_percentage=coverage,
         strategy=strategy,
     )
-

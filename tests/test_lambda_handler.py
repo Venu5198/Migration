@@ -6,7 +6,7 @@ and error propagation without requiring real AWS resources or credentials.
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -52,7 +52,10 @@ def test_valid_s3_event_success(mock_s3_env, sample_xlsx_bytes, monkeypatch):
                 "eventName": "ObjectCreated:Put",
                 "s3": {
                     "bucket": {"name": "source-bucket"},
-                    "object": {"key": "topia/incoming/01_valid_basic.xlsx", "size": len(sample_xlsx_bytes)},
+                    "object": {
+                        "key": "topia/incoming/01_valid_basic.xlsx",
+                        "size": len(sample_xlsx_bytes),
+                    },
                 },
             }
         ]
@@ -67,7 +70,9 @@ def test_valid_s3_event_success(mock_s3_env, sample_xlsx_bytes, monkeypatch):
     assert "_EQUUS_" in res["output"]
     assert "_MAPPING_REPORT_" in res["report"]
     assert res["output"].startswith("s3://test-dest-bucket/equus/01_valid_basic_EQUUS_")
-    assert res["report"].startswith("s3://test-dest-bucket/equus/reports/01_valid_basic_MAPPING_REPORT_")
+    assert res["report"].startswith(
+        "s3://test-dest-bucket/equus/reports/01_valid_basic_MAPPING_REPORT_"
+    )
 
     # Assert S3 download was called with correct parameters
     mock_s3.get_object.assert_called_once_with(
@@ -181,7 +186,10 @@ def test_url_encoded_keys_decoded(mock_s3_env, sample_xlsx_bytes, monkeypatch):
                 "s3": {
                     "bucket": {"name": "source-bucket"},
                     # URL-encoded string for "Topia + Export 2026.xlsx"
-                    "object": {"key": "topia/incoming/Topia%20%2B%20Export%202026.xlsx", "size": len(sample_xlsx_bytes)},
+                    "object": {
+                        "key": "topia/incoming/Topia%20%2B%20Export%202026.xlsx",
+                        "size": len(sample_xlsx_bytes),
+                    },
                 },
             }
         ]
@@ -211,14 +219,16 @@ def test_missing_and_malformed_event_fields(mock_s3_env):
         handler.lambda_handler({"Records": [{"eventName": "ObjectCreated:Put"}]})
 
     with pytest.raises(ValueError, match="bucket name or object key is missing"):
-        handler.lambda_handler({
-            "Records": [
-                {
-                    "eventName": "ObjectCreated:Put",
-                    "s3": {"bucket": {}, "object": {}},
-                }
-            ]
-        })
+        handler.lambda_handler(
+            {
+                "Records": [
+                    {
+                        "eventName": "ObjectCreated:Put",
+                        "s3": {"bucket": {}, "object": {}},
+                    }
+                ]
+            }
+        )
 
     with pytest.raises(ValueError, match="Unrecognized event structure"):
         handler.lambda_handler({"unknown_event": True})
@@ -304,7 +314,7 @@ def test_oversized_payload_skipped(mock_s3_env, monkeypatch):
 
 
 def test_anti_loop_guard(mock_s3_env, monkeypatch):
-    """Test that objects dropped in destination prefix are skipped to prevent infinite retriggering."""
+    """Objects dropped in destination prefix are skipped to prevent infinite retriggering."""
     mock_s3 = MagicMock()
     monkeypatch.setattr(handler, "get_s3_client", lambda: mock_s3)
 
@@ -317,7 +327,10 @@ def test_anti_loop_guard(mock_s3_env, monkeypatch):
                 "eventName": "ObjectCreated:Put",
                 "s3": {
                     "bucket": {"name": "test-dest-bucket"},
-                    "object": {"key": "equus/01_valid_basic_EQUUS_20261024T000000Z.xlsx", "size": 1000},
+                    "object": {
+                        "key": "equus/01_valid_basic_EQUUS_20261024T000000Z.xlsx",
+                        "size": 1000,
+                    },
                 },
             }
         ]

@@ -52,8 +52,8 @@ def reconcile_equus_transformation(result: TransformationResult) -> dict[str, An
                 if emp_key in seen_insert_emp_numbers:
                     errors.append(
                         f"INSERT record #{idx} specifies Col 1='INSERT' for employee '{emp_key}', "
-                        "but employee demographics were already inserted; subsequent assignments for the same "
-                        "employee must specify Col 1='IGNORE'"
+                        "but employee demographics were already inserted; subsequent assignments "
+                        "for the same employee must specify Col 1='IGNORE'"
                     )
                 seen_insert_emp_numbers.add(emp_key)
             elif cmd_a == "IGNORE":
@@ -125,8 +125,10 @@ def reconcile_equus_transformation(result: TransformationResult) -> dict[str, An
     # - insert_records_count / insert_records: Primary assignment rows (1:1 with source rows)
     # - update_records_count / update_records: Child / secondary entity rows (tax, entities, etc.)
     # - attempted_records: Total generated records submitted to reconciliation
-    # - accepted_records: Records approved for downstream Equus import (total_output if valid, 0 if failed)
-    # - rejected_records: Records blocked from import due to constraint violations (total_output if failed, 0 if valid)
+    # - accepted_records: Records approved for downstream Equus import
+    #   (total_output if valid, 0 if failed)
+    # - rejected_records: Records blocked from import due to constraint violations
+    #   (total_output if failed, 0 if valid)
     is_valid = len(errors) == 0
     accepted_records = total_output if is_valid else 0
     rejected_records = total_output if not is_valid else 0
@@ -155,4 +157,3 @@ def reconcile_equus_transformation(result: TransformationResult) -> dict[str, An
         "validation_errors_count": len(errors),
         "transformation_warnings_count": len(result.warnings),
     }
-

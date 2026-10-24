@@ -122,4 +122,3 @@ class PagedJobs(BaseModel):
     page: int
     page_size: int
     total: int
-

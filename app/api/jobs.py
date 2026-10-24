@@ -129,7 +129,9 @@ async def queue_equus_migration(
         or strategy
         or DEFAULT_ASSIGNMENT_IDENTIFIER_STRATEGY
     )
-    chosen_target = (payload.target if payload and payload.target else None) or settings.equus_target
+    chosen_target = (
+        payload.target if payload and payload.target else None
+    ) or settings.equus_target
     chosen_demo_writes = (
         payload.demo_writes_enabled
         if payload and payload.demo_writes_enabled is not None
@@ -142,11 +144,9 @@ async def queue_equus_migration(
     except PermissionError as pe:
         raise HTTPException(
             403, detail={"code": "LIVE_WRITES_DISABLED", "message": str(pe)}
-        )
+        ) from pe
     except ValueError as ve:
-        raise HTTPException(
-            422, detail={"code": "INVALID_DEMO_TARGET", "message": str(ve)}
-        )
+        raise HTTPException(422, detail={"code": "INVALID_DEMO_TARGET", "message": str(ve)}) from ve
 
     return await _create(
         "equus_migration",
@@ -275,7 +275,6 @@ async def export_report(
         # Check if job reconciliation failed
         is_recon_failed = False
 
-
         if job.get("kind") == "equus_migration":
             recon = (job.get("result", {}) or {}).get("reconciliation", {})
             if recon.get("status") == "FAILED" or recon.get("is_valid") is False:
@@ -307,7 +306,6 @@ async def export_report(
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers=out_headers,
         )
-
 
     report_id = str(uuid4())
     source = await repo.get_source(job["source_id"])

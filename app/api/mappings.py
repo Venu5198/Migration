@@ -198,7 +198,10 @@ async def approve_mapping(
     if is_blank_or_ambiguous_header(mapping["source_field"]):
         raise DomainError(
             "AMBIGUOUS_SOURCE_HEADER",
-            f"Mapping with blank or ambiguous source header '{mapping['source_field']}' cannot be approved.",
+            (
+                f"Mapping with blank or ambiguous source header '{mapping['source_field']}'"
+                " cannot be approved."
+            ),
             409,
         )
     try:

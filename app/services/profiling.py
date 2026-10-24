@@ -4,8 +4,6 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from app.schemas import IssueSeverity, ValidationIssue
-
-
 from app.services.workbooks import detect_sheet_layout
 
 
@@ -61,4 +59,3 @@ def profile_workbook(path: Path) -> dict:
         )
     workbook.close()
     return {"sheets": sheets, "issues": issues}
-

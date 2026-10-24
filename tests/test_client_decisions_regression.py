@@ -13,13 +13,11 @@ from pathlib import Path
 from typing import Any
 
 import openpyxl
-import pytest
 
 from app.services.equus import (
     DEFAULT_TEMPLATE_PATH,
     parse_three_row_workbook,
     reconcile_equus_transformation,
-    run_equus_migration_pipeline,
     transform_topia_to_equus,
 )
 from app.services.equus.generator import generate_equus_import_file
@@ -27,7 +25,6 @@ from app.services.equus.mapping_config import (
     STRATEGY_EMPLOYEE_NUMBER,
     STRATEGY_TOPIA_ID_WITH_FALLBACK,
 )
-from app.services.equus.parser import ColumnMetadata, ParsedSheet
 from app.services.equus.transformer import TransformationResult
 
 
@@ -202,8 +199,42 @@ def test_regression_one_employee_multiple_assignments_distinct_topia_ids(tmp_pat
     """Under Topia ID strategy, distinct Topia assignment IDs are used directly."""
     src_path = tmp_path / "multi_asg_topia_ids.xlsx"
     rows = [
-        ["E9001", "Initiated", "TOP-001", "Female", "1990-01-01", "USA", "UK", None, None, None, None, None, None, None, None, None],
-        ["E9001", "Initiated", "TOP-002", "Female", "1990-01-01", "USA", "FRA", None, None, None, None, None, None, None, None, None],
+        [
+            "E9001",
+            "Initiated",
+            "TOP-001",
+            "Female",
+            "1990-01-01",
+            "USA",
+            "UK",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+        [
+            "E9001",
+            "Initiated",
+            "TOP-002",
+            "Female",
+            "1990-01-01",
+            "USA",
+            "FRA",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
     parsed = parse_three_row_workbook(src_path)
@@ -237,9 +268,60 @@ def test_regression_multiple_employees_distinct_identifiers(tmp_path: Path):
     """Multiple employees with distinct identifiers generate clean INSERT rows without collision."""
     src_path = tmp_path / "multiple_distinct_employees.xlsx"
     rows = [
-        ["EMP001", "Initiated", "T1", "Male", "1980-01-01", "USA", "CAN", None, None, "111-222", None, None, None, None, None, None],
-        ["EMP002", "Initiated", "T2", "Female", "1985-02-02", "USA", "MEX", None, None, "333-444", None, None, None, None, None, None],
-        ["EMP003", "Initiated", "T3", "Non-Binary", "1990-03-03", "USA", "DEU", None, None, "555-666", None, None, None, None, None, None],
+        [
+            "EMP001",
+            "Initiated",
+            "T1",
+            "Male",
+            "1980-01-01",
+            "USA",
+            "CAN",
+            None,
+            None,
+            "111-222",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+        [
+            "EMP002",
+            "Initiated",
+            "T2",
+            "Female",
+            "1985-02-02",
+            "USA",
+            "MEX",
+            None,
+            None,
+            "333-444",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+        [
+            "EMP003",
+            "Initiated",
+            "T3",
+            "Non-Binary",
+            "1990-03-03",
+            "USA",
+            "DEU",
+            None,
+            None,
+            "555-666",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
     parsed = parse_three_row_workbook(src_path)
@@ -310,10 +392,27 @@ def test_regression_dependents_embedded_in_source_row(tmp_path: Path):
 
 
 def test_regression_dependents_secondary_records_multi_children(tmp_path: Path):
-    """Secondary dependent records for an employee: Child 0 packs on Row 0, Child 1 on Row 1 (UPDATE)."""
+    """Secondary dependent records: Child 0 packs on Row 0, Child 1 on Row 1 (UPDATE)."""
     src_path = tmp_path / "secondary_dependents.xlsx"
     rows = [
-        ["EMP200", "Initiated", "T-200", "Male", "1975-04-12", "USA", "FRA", None, None, None, None, None, None, None, None, None],
+        [
+            "EMP200",
+            "Initiated",
+            "T-200",
+            "Male",
+            "1975-04-12",
+            "USA",
+            "FRA",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
     parsed = parse_three_row_workbook(src_path)
@@ -380,8 +479,42 @@ def test_regression_dependents_explicit_assignment_id_linkage(tmp_path: Path):
     """Dependent with explicit assignment_id links specifically to that assignment."""
     src_path = tmp_path / "dep_explicit_asg.xlsx"
     rows = [
-        ["EMP300", "Initiated", "T-301", "Male", "1980-01-01", "USA", "SGP", None, None, None, None, None, None, None, None, None],
-        ["EMP300", "Initiated", "T-302", "Male", "1980-01-01", "USA", "JPN", None, None, None, None, None, None, None, None, None],
+        [
+            "EMP300",
+            "Initiated",
+            "T-301",
+            "Male",
+            "1980-01-01",
+            "USA",
+            "SGP",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+        [
+            "EMP300",
+            "Initiated",
+            "T-302",
+            "Male",
+            "1980-01-01",
+            "USA",
+            "JPN",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
     parsed = parse_three_row_workbook(src_path)
@@ -429,7 +562,24 @@ def test_regression_orphan_dependent_unlinked_warning(tmp_path: Path):
     """Dependent referencing non-existent employee generates ORPHAN_DEPENDENT_RECORD warning."""
     src_path = tmp_path / "valid_parent.xlsx"
     rows = [
-        ["EMP400", "Initiated", "T-400", "Female", "1992-11-05", "USA", "AUS", None, None, None, None, None, None, None, None, None],
+        [
+            "EMP400",
+            "Initiated",
+            "T-400",
+            "Female",
+            "1992-11-05",
+            "USA",
+            "AUS",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
     parsed = parse_three_row_workbook(src_path)
@@ -465,11 +615,45 @@ def test_regression_orphan_dependent_unlinked_warning(tmp_path: Path):
 
 
 def test_regression_ambiguous_dependent_multi_assignment_warning(tmp_path: Path):
-    """Dependent referencing multi-assignment employee without assignment_id triggers AMBIGUOUS warning."""
+    """Dependent on multi-assignment employee without assignment_id triggers AMBIGUOUS warning."""
     src_path = tmp_path / "ambiguous_dep.xlsx"
     rows = [
-        ["EMP500", "Initiated", "T-501", "Male", "1983-04-18", "USA", "BRA", None, None, None, None, None, None, None, None, None],
-        ["EMP500", "Initiated", "T-502", "Male", "1983-04-18", "USA", "ARG", None, None, None, None, None, None, None, None, None],
+        [
+            "EMP500",
+            "Initiated",
+            "T-501",
+            "Male",
+            "1983-04-18",
+            "USA",
+            "BRA",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+        [
+            "EMP500",
+            "Initiated",
+            "T-502",
+            "Male",
+            "1983-04-18",
+            "USA",
+            "ARG",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
     parsed = parse_three_row_workbook(src_path)
@@ -505,7 +689,24 @@ def test_regression_unlinked_dependent_missing_all_keys(tmp_path: Path):
     """Dependent missing both employee_id and assignment_id triggers UNLINKED warning."""
     src_path = tmp_path / "unlinked_keys.xlsx"
     rows = [
-        ["EMP600", "Initiated", "T-600", "Female", "1988-09-09", "USA", "ESP", None, None, None, None, None, None, None, None, None],
+        [
+            "EMP600",
+            "Initiated",
+            "T-600",
+            "Female",
+            "1988-09-09",
+            "USA",
+            "ESP",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
     parsed = parse_three_row_workbook(src_path)
@@ -631,7 +832,9 @@ def test_regression_reconciliation_catches_tampered_records():
     )
     recon_dup = reconcile_equus_transformation(res_dup_id)
     assert recon_dup["is_valid"] is False
-    assert any("Duplicate Assignment Identifier detected: 'COLLISION'" in e for e in recon_dup["errors"])
+    assert any(
+        "Duplicate Assignment Identifier detected: 'COLLISION'" in e for e in recon_dup["errors"]
+    )
 
     # 3. Repeat assignment with Col 1='INSERT' (attempting to re-insert demographic record)
     res_repeat_insert = TransformationResult(

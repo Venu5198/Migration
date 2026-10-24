@@ -527,5 +527,3 @@ async def test_equus_migration_artifact_export_security(client: TestClient, tmp_
     assert failed_resp.status_code == 200
     assert failed_resp.headers.get("X-Equus-Diagnostic-Only") == "true"
     assert "DIAGNOSTIC_ONLY_" in failed_resp.headers.get("Content-Disposition", "")
-
-

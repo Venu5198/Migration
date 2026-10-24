@@ -131,7 +131,6 @@ def generate_mapping_report_file(
         ("Reconciliation Status", recon_status),
     ]
 
-
     if exec_summary and getattr(exec_summary, "demo_writes_enabled", False):
         summary_data.extend(
             [
@@ -230,6 +229,7 @@ def generate_mapping_report_file(
     # 1. Output reconciliation validation errors first (critical failures)
     if val_errors:
         import re
+
         for err in val_errors:
             row_num = ws_warn.max_row + 1
             err_str = str(err)
@@ -277,7 +277,6 @@ def generate_mapping_report_file(
         ws_warn.cell(row=r_idx, column=3, value=w.get("equus_column")).font = regular_font
         ws_warn.cell(row=r_idx, column=4, value=w.get("equus_header")).font = regular_font
         ws_warn.cell(row=r_idx, column=5, value=w.get("warning")).font = regular_font
-
 
     if exec_summary and getattr(exec_summary, "errors", None):
         for err in exec_summary.errors:

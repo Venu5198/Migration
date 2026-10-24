@@ -66,7 +66,8 @@ def detect_conflicting_notifications(
                 rule_prefix = fr.get("Value", "").rstrip("/")
                 if rule_prefix == clean_target:
                     conflicts.append(
-                        f"Overlapping prefix '{rule_prefix}' in existing Lambda rule Id: '{rule.get('Id')}'"
+                        f"Overlapping prefix '{rule_prefix}' in existing "
+                        f"Lambda rule Id: '{rule.get('Id')}'"
                     )
     return conflicts
 
@@ -121,7 +122,9 @@ def merge_s3_notifications(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Merge S3 bucket notifications safely.")
-    parser.add_argument("--current-json", default="{}", help="Existing notification JSON from s3api")
+    parser.add_argument(
+        "--current-json", default="{}", help="Existing notification JSON from s3api"
+    )
     parser.add_argument("--filter-file", required=True, help="Path to s3-notification-filter.json")
     parser.add_argument("--arn", required=True, help="Lambda Function ARN to attach")
     parser.add_argument("--prefix", default="topia/incoming/", help="Source S3 prefix")

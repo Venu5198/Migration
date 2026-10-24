@@ -14,7 +14,6 @@ Verifies:
 """
 
 from pathlib import Path
-from typing import Any
 
 import openpyxl
 import pytest
@@ -23,14 +22,9 @@ from fastapi.testclient import TestClient
 from app.core.config import settings
 from app.main import app
 from app.services.equus import (
-    DEFAULT_TEMPLATE_PATH,
-    DestinationExecutionSummary,
     MockEquusDestination,
-    parse_three_row_workbook,
     run_equus_migration_pipeline,
-    transform_topia_to_equus,
 )
-from app.services.equus.generator import generate_mapping_report_file
 from tests.test_client_decisions_regression import _create_synthetic_source_file
 
 
@@ -81,7 +75,11 @@ def test_api_rejects_invalid_demo_target(client: TestClient):
     """API endpoint returns 422 when demo write target is invalid."""
     res = client.post(
         "/api/v1/sources/dummy-source-id/equus-migration",
-        json={"strategy": "EMPLOYEE_NUMBER", "target": "untrusted_host", "demo_writes_enabled": True},
+        json={
+            "strategy": "EMPLOYEE_NUMBER",
+            "target": "untrusted_host",
+            "demo_writes_enabled": True,
+        },
     )
     assert res.status_code == 422
     assert res.json()["detail"]["code"] == "INVALID_DEMO_TARGET"
@@ -92,7 +90,9 @@ def test_api_rejects_invalid_demo_target(client: TestClient):
 # ==============================================================================
 
 
-def test_demonstrate_insert_new_employee_and_assignment(tmp_path: Path, mock_dest: MockEquusDestination):
+def test_demonstrate_insert_new_employee_and_assignment(
+    tmp_path: Path, mock_dest: MockEquusDestination
+):
     """Demonstrate clean INSERT of a new synthetic employee and assignment."""
     src_path = tmp_path / "insert_demo.xlsx"
     rows = [
@@ -237,8 +237,42 @@ def test_multiple_assignments_persist_cleanly_without_collision(
     """Multiple assignments for same employee persist with distinct sequential identifiers."""
     src_path = tmp_path / "multi_asg_demo.xlsx"
     rows = [
-        ["EMP_M200", "Initiated", "T-M1", "Male", "1985-05-15", "USA", "UK", None, None, "111", None, None, None, None, None, None],
-        ["EMP_M200", "Initiated", "T-M2", "Male", "1985-05-15", "USA", "DEU", None, None, "222", None, None, None, None, None, None],
+        [
+            "EMP_M200",
+            "Initiated",
+            "T-M1",
+            "Male",
+            "1985-05-15",
+            "USA",
+            "UK",
+            None,
+            None,
+            "111",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
+        [
+            "EMP_M200",
+            "Initiated",
+            "T-M2",
+            "Male",
+            "1985-05-15",
+            "USA",
+            "DEU",
+            None,
+            None,
+            "222",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
 
@@ -273,7 +307,24 @@ def test_orphan_dependents_rejected_from_destination(
     """Orphan dependent referencing non-existent employee is rejected from destination."""
     src_path = tmp_path / "parent_exists.xlsx"
     rows = [
-        ["EMP_VALID_300", "Initiated", "T-300", "Female", "1990-01-01", "USA", "FRA", None, None, None, None, None, None, None, None, None],
+        [
+            "EMP_VALID_300",
+            "Initiated",
+            "T-300",
+            "Female",
+            "1990-01-01",
+            "USA",
+            "FRA",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
 
@@ -308,10 +359,27 @@ def test_orphan_dependents_rejected_from_destination(
 
 
 def test_migration_rerun_is_strictly_idempotent(tmp_path: Path, mock_dest: MockEquusDestination):
-    """Rerunning identical migration marks records as skipped/idempotent and creates no duplicates."""
+    """Rerunning identical migration marks records as skipped and creates no duplicates."""
     src_path = tmp_path / "idempotent_source.xlsx"
     rows = [
-        ["EMP_IDEM_400", "Initiated", "T-400", "Male", "1982-08-20", "USA", "SGP", None, None, "555-400", "idem@test.com", None, None, None, None, None],
+        [
+            "EMP_IDEM_400",
+            "Initiated",
+            "T-400",
+            "Male",
+            "1982-08-20",
+            "USA",
+            "SGP",
+            None,
+            None,
+            "555-400",
+            "idem@test.com",
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
 
@@ -379,11 +447,30 @@ def test_partial_failure_detection_and_discrepancy_reporting(mock_dest: MockEquu
 # ==============================================================================
 
 
-def test_mapping_report_reflects_destination_metrics(tmp_path: Path, mock_dest: MockEquusDestination):
-    """Migration Results workbook includes execution-level demo metrics in Executive Summary and Tab 4."""
+def test_mapping_report_reflects_destination_metrics(
+    tmp_path: Path, mock_dest: MockEquusDestination
+):
+    """Migration Results includes execution-level demo metrics in Executive Summary and Tab 4."""
     src_path = tmp_path / "workbook_metrics_source.xlsx"
     rows = [
-        ["EMP_DELIV_500", "Initiated", "T-500", "Female", "1991-03-22", "USA", "AUS", None, None, "555-500", None, None, None, None, None, None],
+        [
+            "EMP_DELIV_500",
+            "Initiated",
+            "T-500",
+            "Female",
+            "1991-03-22",
+            "USA",
+            "AUS",
+            None,
+            None,
+            "555-500",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
 
@@ -415,7 +502,24 @@ def test_safe_mode_preserves_planned_only_reporting(tmp_path: Path):
     """When demo writes are disabled, mapping report explicitly states PLANNED ONLY."""
     src_path = tmp_path / "safe_mode_source.xlsx"
     rows = [
-        ["EMP_SAFE_600", "Initiated", "T-600", "Male", "1984-12-12", "USA", "JPN", None, None, "555-600", None, None, None, None, None, None],
+        [
+            "EMP_SAFE_600",
+            "Initiated",
+            "T-600",
+            "Male",
+            "1984-12-12",
+            "USA",
+            "JPN",
+            None,
+            None,
+            "555-600",
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ],
     ]
     _create_synthetic_source_file(src_path, rows)
 
